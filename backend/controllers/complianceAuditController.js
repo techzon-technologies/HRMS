@@ -2,13 +2,7 @@ import { ComplianceAudit, Employee } from '../models/index.js';
 
 export const getAllComplianceAudits = async (req, res) => {
   try {
-    const complianceAudits = await ComplianceAudit.findAll({
-      include: [{
-        model: Employee,
-        as: 'employee',
-        attributes: ['id', 'firstName', 'lastName', 'employeeId']
-      }]
-    });
+    const complianceAudits = await ComplianceAudit.findAll();
     res.json(complianceAudits);
   } catch (error) {
     console.error('Error fetching compliance audits:', error);
@@ -19,13 +13,7 @@ export const getAllComplianceAudits = async (req, res) => {
 export const getComplianceAuditById = async (req, res) => {
   try {
     const { id } = req.params;
-    const complianceAudit = await ComplianceAudit.findByPk(id, {
-      include: [{
-        model: Employee,
-        as: 'employee',
-        attributes: ['id', 'firstName', 'lastName', 'employeeId']
-      }]
-    });
+    const complianceAudit = await ComplianceAudit.findByPk(id);
 
     if (!complianceAudit) {
       return res.status(404).json({ message: 'Compliance audit not found' });

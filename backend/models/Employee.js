@@ -46,6 +46,11 @@ const Employee = sequelize.define('Employee', {
     status: {
         type: DataTypes.ENUM('active', 'inactive', 'terminated'),
         defaultValue: 'active'
+    },
+    employeeId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
     }
 });
 
