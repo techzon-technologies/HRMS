@@ -1,0 +1,512 @@
+import { useState } from "react";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Search, Download, Clock, UserCheck, UserX, AlertTriangle, Plus, Edit, Trash2, Eye } from "lucide-react";
+
+interface AttendanceRecord {
+  id: number;
+  employee: {
+    name: string;
+    avatar: string;
+    initials: string;
+    department: string;
+  };
+  checkIn: string;
+  checkOut: string;
+  status: "present" | "late" | "absent" | "on-leave";
+  workHours: string;
+}
+
+const initialAttendanceRecords: AttendanceRecord[] = [
+  {
+    id: 1,
+    employee: {
+      name: "Sarah Johnson",
+      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=40&h=40&fit=crop&crop=face",
+      initials: "SJ",
+      department: "Marketing",
+    },
+    checkIn: "08:45 AM",
+    checkOut: "05:30 PM",
+    status: "present",
+    workHours: "8h 45m",
+  },
+  {
+    id: 2,
+    employee: {
+      name: "Michael Chen",
+      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face",
+      initials: "MC",
+      department: "Engineering",
+    },
+    checkIn: "09:15 AM",
+    checkOut: "06:00 PM",
+    status: "late",
+    workHours: "8h 45m",
+  },
+  {
+    id: 3,
+    employee: {
+      name: "Emily Davis",
+      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face",
+      initials: "ED",
+      department: "Design",
+    },
+    checkIn: "08:30 AM",
+    checkOut: "05:15 PM",
+    status: "present",
+    workHours: "8h 45m",
+  },
+  {
+    id: 4,
+    employee: {
+      name: "James Wilson",
+      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face",
+      initials: "JW",
+      department: "Product",
+    },
+    checkIn: "-",
+    checkOut: "-",
+    status: "on-leave",
+    workHours: "-",
+  },
+  {
+    id: 5,
+    employee: {
+      name: "Lisa Anderson",
+      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&crop=face",
+      initials: "LA",
+      department: "Human Resources",
+    },
+    checkIn: "08:55 AM",
+    checkOut: "05:45 PM",
+    status: "present",
+    workHours: "8h 50m",
+  },
+  {
+    id: 6,
+    employee: {
+      name: "David Kim",
+      avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=40&h=40&fit=crop&crop=face",
+      initials: "DK",
+      department: "Finance",
+    },
+    checkIn: "-",
+    checkOut: "-",
+    status: "absent",
+    workHours: "-",
+  },
+];
+
+const statusBadge = (status: string) => {
+  switch (status) {
+    case "present":
+      return <Badge variant="default">Present</Badge>;
+    case "late":
+      return <Badge className="bg-chart-4 text-primary-foreground hover:bg-chart-4/90">Late</Badge>;
+    case "absent":
+      return <Badge variant="destructive">Absent</Badge>;
+    case "on-leave":
+      return <Badge variant="secondary">On Leave</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+};
+
+const Attendance = () => {
+  const { toast } = useToast();
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [formData, setFormData] = useState({
+    employeeName: "",
+    department: "",
+    checkIn: "",
+    checkOut: "",
+    status: "present" as "present" | "late" | "absent" | "on-leave",
+  });
+
+  const filteredRecords = attendanceRecords.filter((record) =>
+    record.employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    record.employee.department.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const attendanceStats = [
+    { label: "Present", value: filteredRecords.filter(r => r.status === "present").length, icon: UserCheck, color: "text-primary" },
+    { label: "Absent", value: filteredRecords.filter(r => r.status === "absent").length, icon: UserX, color: "text-destructive" },
+    { label: "Late", value: filteredRecords.filter(r => r.status === "late").length, icon: AlertTriangle, color: "text-chart-4" },
+    { label: "On Leave", value: filteredRecords.filter(r => r.status === "on-leave").length, icon: Clock, color: "text-muted-foreground" },
+  ];
+
+  const handleExport = () => {
+    toast({
+      title: "Export Started",
+      description: "Attendance report is being generated and will download shortly.",
+    });
+  };
+
+  const handleAddAttendance = () => {
+    const initials = formData.employeeName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
+
+    const newRecord: AttendanceRecord = {
+      id: attendanceRecords.length + 1,
+      employee: {
+        name: formData.employeeName,
+        avatar: "",
+        initials,
+        department: formData.department,
+      },
+      checkIn: formData.checkIn || "-",
+      checkOut: formData.checkOut || "-",
+      status: formData.status,
+      workHours: formData.checkIn && formData.checkOut ? "8h 0m" : "-",
+    };
+
+    setAttendanceRecords([...attendanceRecords, newRecord]);
+    setIsAddDialogOpen(false);
+    setFormData({ employeeName: "", department: "", checkIn: "", checkOut: "", status: "present" });
+    toast({
+      title: "Attendance Added",
+      description: `Attendance record for ${formData.employeeName} has been added.`,
+    });
+  };
+
+  const handleEditAttendance = () => {
+    if (!selectedRecord) return;
+
+    setAttendanceRecords(attendanceRecords.map((record) =>
+      record.id === selectedRecord.id
+        ? {
+            ...record,
+            checkIn: formData.checkIn || record.checkIn,
+            checkOut: formData.checkOut || record.checkOut,
+            status: formData.status,
+          }
+        : record
+    ));
+    setIsEditDialogOpen(false);
+    setSelectedRecord(null);
+    toast({
+      title: "Attendance Updated",
+      description: "Attendance record has been updated successfully.",
+    });
+  };
+
+  const handleDeleteAttendance = (id: number) => {
+    setAttendanceRecords(attendanceRecords.filter((record) => record.id !== id));
+    toast({
+      title: "Attendance Deleted",
+      description: "Attendance record has been deleted.",
+    });
+  };
+
+  const openEditDialog = (record: AttendanceRecord) => {
+    setSelectedRecord(record);
+    setFormData({
+      employeeName: record.employee.name,
+      department: record.employee.department,
+      checkIn: record.checkIn,
+      checkOut: record.checkOut,
+      status: record.status,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const openViewDialog = (record: AttendanceRecord) => {
+    setSelectedRecord(record);
+    setIsViewDialogOpen(true);
+  };
+
+  return (
+    <MainLayout title="Attendance" subtitle="Track employee attendance">
+      {/* Stats */}
+      <div className="mb-6 grid gap-6 md:grid-cols-4">
+        {attendanceStats.map((stat) => (
+          <Card key={stat.label}>
+            <CardContent className="flex items-center gap-4 p-6">
+              <div className={`rounded-lg bg-muted p-3 ${stat.color}`}>
+                <stat.icon className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Attendance Table */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Today's Attendance</CardTitle>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                className="w-64 pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Attendance
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Check In</TableHead>
+                <TableHead>Check Out</TableHead>
+                <TableHead>Work Hours</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredRecords.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={record.employee.avatar} />
+                        <AvatarFallback>{record.employee.initials}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-foreground">{record.employee.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{record.employee.department}</TableCell>
+                  <TableCell className="text-muted-foreground">{record.checkIn}</TableCell>
+                  <TableCell className="text-muted-foreground">{record.checkOut}</TableCell>
+                  <TableCell className="text-muted-foreground">{record.workHours}</TableCell>
+                  <TableCell>{statusBadge(record.status)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => openViewDialog(record)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(record)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAttendance(record.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add Attendance Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Attendance Record</DialogTitle>
+            <DialogDescription>Add a new attendance record for an employee.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="employeeName">Employee Name</Label>
+              <Input
+                id="employeeName"
+                value={formData.employeeName}
+                onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              <Input
+                id="department"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="checkIn">Check In</Label>
+                <Input
+                  id="checkIn"
+                  type="time"
+                  value={formData.checkIn}
+                  onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="checkOut">Check Out</Label>
+                <Input
+                  id="checkOut"
+                  type="time"
+                  value={formData.checkOut}
+                  onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status} onValueChange={(value: "present" | "late" | "absent" | "on-leave") => setFormData({ ...formData, status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">Present</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
+                  <SelectItem value="on-leave">On Leave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddAttendance}>Add Record</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Attendance Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Attendance Record</DialogTitle>
+            <DialogDescription>Update the attendance record.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editCheckIn">Check In</Label>
+                <Input
+                  id="editCheckIn"
+                  type="time"
+                  value={formData.checkIn}
+                  onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editCheckOut">Check Out</Label>
+                <Input
+                  id="editCheckOut"
+                  type="time"
+                  value={formData.checkOut}
+                  onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editStatus">Status</Label>
+              <Select value={formData.status} onValueChange={(value: "present" | "late" | "absent" | "on-leave") => setFormData({ ...formData, status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">Present</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="absent">Absent</SelectItem>
+                  <SelectItem value="on-leave">On Leave</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditAttendance}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Attendance Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Attendance Details</DialogTitle>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={selectedRecord.employee.avatar} />
+                  <AvatarFallback className="text-lg">{selectedRecord.employee.initials}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedRecord.employee.name}</h3>
+                  <p className="text-muted-foreground">{selectedRecord.employee.department}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Check In</Label>
+                  <p className="font-medium">{selectedRecord.checkIn}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Check Out</Label>
+                  <p className="font-medium">{selectedRecord.checkOut}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Work Hours</Label>
+                  <p className="font-medium">{selectedRecord.workHours}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div className="mt-1">{statusBadge(selectedRecord.status)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </MainLayout>
+  );
+};
+
+export default Attendance;
