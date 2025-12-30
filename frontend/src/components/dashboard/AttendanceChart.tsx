@@ -1,13 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const data = [
-  { day: "Mon", present: 145, absent: 5, late: 8 },
-  { day: "Tue", present: 142, absent: 8, late: 6 },
-  { day: "Wed", present: 148, absent: 4, late: 5 },
-  { day: "Thu", present: 144, absent: 6, late: 7 },
-  { day: "Fri", present: 140, absent: 10, late: 4 },
-];
+const data: { day: string; present: number; absent: number; late: number }[] = [];
 
 export function AttendanceChart() {
   return (

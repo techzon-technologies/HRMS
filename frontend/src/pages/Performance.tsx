@@ -95,10 +95,10 @@ export default function Performance() {
           apiService.performance.getAll(),
           apiService.employees.getAll()
         ]);
-        
+
         const performanceData: PerformanceRecord[] = Array.isArray(performanceResponse) ? performanceResponse : [];
-        const employeesData: PerformanceEmployee[] = Array.isArray(employeesResponse) ? employeesResponse.map(emp => ({ ...emp, department: emp.department || '' })) : [];
-        
+        const employeesData: PerformanceEmployee[] = Array.isArray(employeesResponse) ? employeesResponse.map((emp: any) => ({ ...emp, department: emp.department || '' })) : [];
+
         setPerformanceData(performanceData);
         performanceDataRef.current = performanceData;
         setEmployees(employeesData);
@@ -133,13 +133,7 @@ export default function Performance() {
   ];
 
   // Chart data
-  const performanceByDepartment = [
-    { name: "Engineering", rating: 4.5 },
-    { name: "Marketing", rating: 4.2 },
-    { name: "Sales", rating: 3.8 },
-    { name: "HR", rating: 4.8 },
-    { name: "Finance", rating: 4.1 },
-  ];
+  const performanceByDepartment: { name: string; rating: number }[] = [];
 
   const performanceByStatus = [
     { name: "Completed", value: performanceData.filter(p => p.status === "Completed").length },
@@ -171,10 +165,10 @@ export default function Performance() {
       };
 
       const newRecord: any = await apiService.performance.create(performanceData);
-      
+
       // Find the employee details for the newly created record
       const employee = employees.find(emp => emp.id === formData.employeeId);
-      
+
       const recordWithEmployee: PerformanceRecord = {
         id: newRecord.id || 0,
         employeeId: newRecord.employeeId || 0,
@@ -188,7 +182,7 @@ export default function Performance() {
         createdAt: newRecord.createdAt || '',
         updatedAt: newRecord.updatedAt || ''
       };
-      
+
       const currentData = [...performanceDataRef.current];
       const updatedData: PerformanceRecord[] = [...currentData, recordWithEmployee];
       setPerformanceData(updatedData);
@@ -207,7 +201,7 @@ export default function Performance() {
 
   const handleEdit = async () => {
     if (!selectedRecord) return;
-    
+
     try {
       const performanceData = {
         employeeId: formData.employeeId,
@@ -220,10 +214,10 @@ export default function Performance() {
       };
 
       const updatedRecord: any = await apiService.performance.update(selectedRecord.id, performanceData);
-      
+
       // Find the employee details for the updated record
       const employee = employees.find(emp => emp.id === formData.employeeId);
-      
+
       const recordWithEmployee: PerformanceRecord = {
         id: updatedRecord.id || 0,
         employeeId: updatedRecord.employeeId || 0,
@@ -237,7 +231,7 @@ export default function Performance() {
         createdAt: updatedRecord.createdAt || '',
         updatedAt: updatedRecord.updatedAt || ''
       };
-      
+
       const currentData = [...performanceDataRef.current];
       const updatedData: PerformanceRecord[] = currentData.map((p) => p.id === selectedRecord.id ? recordWithEmployee : p);
       setPerformanceData(updatedData);
@@ -257,7 +251,7 @@ export default function Performance() {
     if (window.confirm('Are you sure you want to delete this performance review?')) {
       try {
         await apiService.performance.delete(id);
-        
+
         const updatedData = performanceData.filter((p) => p.id !== id);
         setPerformanceData(updatedData);
         performanceDataRef.current = updatedData;
@@ -275,7 +269,7 @@ export default function Performance() {
 
   const handleCompleteReview = async () => {
     if (!selectedRecord) return;
-    
+
     try {
       const performanceData = {
         employeeId: formData.employeeId,
@@ -288,10 +282,10 @@ export default function Performance() {
       };
 
       const updatedRecord: any = await apiService.performance.update(selectedRecord.id, performanceData);
-      
+
       // Find the employee details for the updated record
       const employee = employees.find(emp => emp.id === formData.employeeId);
-      
+
       const recordWithEmployee: PerformanceRecord = {
         id: updatedRecord.id || 0,
         employeeId: updatedRecord.employeeId || 0,
@@ -305,7 +299,7 @@ export default function Performance() {
         createdAt: updatedRecord.createdAt || '',
         updatedAt: updatedRecord.updatedAt || ''
       };
-      
+
       const currentData = [...performanceDataRef.current];
       const updatedData: PerformanceRecord[] = currentData.map((p) => p.id === selectedRecord.id ? recordWithEmployee : p);
       setPerformanceData(updatedData);
@@ -323,14 +317,14 @@ export default function Performance() {
 
   const openEditDialog = (record: PerformanceRecord) => {
     setSelectedRecord(record);
-    setFormData({ 
-      employeeId: record.employeeId, 
-      department: record.department, 
-      reviewPeriod: record.reviewPeriod, 
-      rating: record.rating, 
-      goals: record.goals, 
-      completed: record.completed, 
-      status: record.status 
+    setFormData({
+      employeeId: record.employeeId,
+      department: record.department,
+      reviewPeriod: record.reviewPeriod,
+      rating: record.rating,
+      goals: record.goals,
+      completed: record.completed,
+      status: record.status
     });
     setIsEditDialogOpen(true);
   };
@@ -342,14 +336,14 @@ export default function Performance() {
 
   const openReviewDialog = (record: PerformanceRecord) => {
     setSelectedRecord(record);
-    setFormData({ 
-      employeeId: record.employeeId, 
-      department: record.department, 
-      reviewPeriod: record.reviewPeriod, 
-      rating: record.rating, 
-      goals: record.goals, 
-      completed: record.completed, 
-      status: record.status 
+    setFormData({
+      employeeId: record.employeeId,
+      department: record.department,
+      reviewPeriod: record.reviewPeriod,
+      rating: record.rating,
+      goals: record.goals,
+      completed: record.completed,
+      status: record.status
     });
     setIsReviewDialogOpen(true);
   };
@@ -382,16 +376,16 @@ export default function Performance() {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis domain={[0, 5]} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value) => [`${value}/5`, 'Rating']}
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }} 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                   />
                   <Bar dataKey="rating" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Reviews by Status</CardTitle>

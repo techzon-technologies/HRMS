@@ -53,46 +53,15 @@ const Reports = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Set default data for reports
-    setDepartmentData([
-      { name: "Engineering", employees: 42 },
-      { name: "Marketing", employees: 28 },
-      { name: "Sales", employees: 35 },
-      { name: "HR", employees: 12 },
-      { name: "Finance", employees: 18 },
-      { name: "Design", employees: 15 },
-    ]);
+    // TODO: Connect to real API endpoints
+    // For now initializing with empty data to avoid showing dummy data
     
-    setAttendanceTrend([
-      { month: "Jul", rate: 94 }, { month: "Aug", rate: 92 }, { month: "Sep", rate: 95 },
-      { month: "Oct", rate: 93 }, { month: "Nov", rate: 91 }, { month: "Dec", rate: 94 },
-    ]);
-    
-    setLeaveDistribution([
-      { name: "Annual", value: 45, color: "hsl(var(--primary))" },
-      { name: "Sick", value: 25, color: "hsl(var(--chart-3))" },
-      { name: "Personal", value: 20, color: "hsl(var(--chart-4))" },
-      { name: "Unpaid", value: 10, color: "hsl(var(--chart-5))" },
-    ]);
-    
-    setPayrollTrend([
-      { month: "Jul", amount: 120 }, { month: "Aug", amount: 135 }, { month: "Sep", amount: 142 },
-      { month: "Oct", amount: 158 }, { month: "Nov", amount: 145 }, { month: "Dec", amount: 165 },
-    ]);
-    
-    setExpensesByCategory([
-      { name: "Travel", value: 45 },
-      { name: "Office Supplies", value: 12 },
-      { name: "Software", value: 32 },
-      { name: "Training", value: 28 },
-      { name: "Equipment", value: 39 },
-    ]);
-    
-    setComplianceStatus([
-      { name: "Compliant", value: 78 },
-      { name: "Needs Attention", value: 15 },
-      { name: "Non-Compliant", value: 7 },
-    ]);
+    setDepartmentData([]);
+    setAttendanceTrend([]);
+    setLeaveDistribution([]);
+    setPayrollTrend([]);
+    setExpensesByCategory([]);
+    setComplianceStatus([]);
     
     setIsLoading(false);
   }, []);

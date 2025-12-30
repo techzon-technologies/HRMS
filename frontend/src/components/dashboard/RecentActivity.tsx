@@ -2,43 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
-const activities = [
-  {
-    id: 1,
-    user: { name: "Sarah Johnson", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=32&h=32&fit=crop&crop=face", initials: "SJ" },
-    action: "submitted a leave request",
-    type: "leave",
-    time: "2 hours ago",
-  },
-  {
-    id: 2,
-    user: { name: "Michael Chen", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face", initials: "MC" },
-    action: "completed onboarding",
-    type: "onboarding",
-    time: "4 hours ago",
-  },
-  {
-    id: 3,
-    user: { name: "Emily Davis", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face", initials: "ED" },
-    action: "updated their profile",
-    type: "profile",
-    time: "5 hours ago",
-  },
-  {
-    id: 4,
-    user: { name: "James Wilson", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face", initials: "JW" },
-    action: "requested time off",
-    type: "leave",
-    time: "Yesterday",
-  },
-  {
-    id: 5,
-    user: { name: "Lisa Anderson", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=32&h=32&fit=crop&crop=face", initials: "LA" },
-    action: "uploaded documents",
-    type: "document",
-    time: "Yesterday",
-  },
-];
+const activities: {
+  id: number;
+  user: { name: string; avatar: string; initials: string };
+  action: string;
+  type: string;
+  time: string;
+}[] = [];
 
 const badgeVariant = (type: string) => {
   switch (type) {

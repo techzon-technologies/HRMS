@@ -3,44 +3,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 
-const leaveRequests = [
-  {
-    id: 1,
-    employee: {
-      name: "Sarah Johnson",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=32&h=32&fit=crop&crop=face",
-      initials: "SJ",
-      department: "Marketing",
-    },
-    type: "Annual Leave",
-    dates: "Dec 28 - Jan 2",
-    days: 4,
-  },
-  {
-    id: 2,
-    employee: {
-      name: "James Wilson",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face",
-      initials: "JW",
-      department: "Engineering",
-    },
-    type: "Sick Leave",
-    dates: "Dec 27",
-    days: 1,
-  },
-  {
-    id: 3,
-    employee: {
-      name: "Emily Davis",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face",
-      initials: "ED",
-      department: "Design",
-    },
-    type: "Personal Leave",
-    dates: "Dec 30",
-    days: 1,
-  },
-];
+const leaveRequests: {
+  id: number;
+  employee: {
+    name: string;
+    avatar: string;
+    initials: string;
+    department: string;
+  };
+  type: string;
+  dates: string;
+  days: number;
+}[] = [];
 
 export function LeaveRequests() {
   return (

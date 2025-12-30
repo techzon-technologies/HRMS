@@ -1,13 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
-const departments = [
-  { name: "Engineering", employees: 42, capacity: 50, color: "bg-primary" },
-  { name: "Marketing", employees: 28, capacity: 35, color: "bg-chart-2" },
-  { name: "Sales", employees: 35, capacity: 40, color: "bg-chart-3" },
-  { name: "Human Resources", employees: 12, capacity: 15, color: "bg-chart-4" },
-  { name: "Finance", employees: 18, capacity: 20, color: "bg-chart-5" },
-];
+const departments: { name: string; employees: number; capacity: number; color: string }[] = [];
 
 export function DepartmentOverview() {
   return (

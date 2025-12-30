@@ -40,21 +40,13 @@ interface SalaryRecord {
   status: string;
 }
 
-const initialSalaryRecords: SalaryRecord[] = [
-  { id: 1, employee: { name: "Sarah Johnson", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=40&h=40&fit=crop&crop=face", initials: "SJ", position: "Marketing Manager" }, baseSalary: 5500, bonus: 500, deductions: 450, netSalary: 5550, status: "paid" },
-  { id: 2, employee: { name: "Michael Chen", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face", initials: "MC", position: "Senior Developer" }, baseSalary: 7200, bonus: 800, deductions: 620, netSalary: 7380, status: "paid" },
-  { id: 3, employee: { name: "Emily Davis", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face", initials: "ED", position: "UI/UX Designer" }, baseSalary: 5000, bonus: 300, deductions: 380, netSalary: 4920, status: "pending" },
-  { id: 4, employee: { name: "James Wilson", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face", initials: "JW", position: "Product Manager" }, baseSalary: 6500, bonus: 600, deductions: 540, netSalary: 6560, status: "paid" },
-  { id: 5, employee: { name: "Lisa Anderson", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&crop=face", initials: "LA", position: "HR Specialist" }, baseSalary: 4500, bonus: 200, deductions: 340, netSalary: 4360, status: "pending" },
-];
-
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(amount);
 };
 
 const Payroll = () => {
   const { toast } = useToast();
-  const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>(initialSalaryRecords);
+  const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
