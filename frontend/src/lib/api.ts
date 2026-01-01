@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Create axios instance with base configuration
-const API_BASE_URL = 'http://localhost:3018/api'; // Using the new port
+const API_BASE_URL = 'https://hrmsbackend.webby.one/api'; // Using domain instead of localhost
 
 const api = axios.create({
   baseURL: API_BASE_URL,
