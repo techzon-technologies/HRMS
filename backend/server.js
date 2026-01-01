@@ -20,10 +20,14 @@ import reportRoutes from './routes/reportRoutes.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3018;
+const PORT = process.env.PORT || 3018; // Backend server still runs on port 3018, domain routing handled by reverse proxy
 
 // Middleware
-app.use(cors());
+// Configure CORS to allow requests from the frontend domain
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:3000', 'https://hrmsbackend.webby.one', 'https://hrms.webby.one'], // Add your frontend domain here
+    credentials: true
+}));
 app.use(express.json());
 
 // Routes
@@ -51,12 +55,13 @@ const startServer = async () => {
         console.log('Database connected successfully.');
 
         // Sync models
-        // In production, you might want to use migrations instead of { alter: true }
-        await sequelize.sync({ alter: true });
+        // Changed from { alter: true } to avoid too many keys/indexes issue
+        await sequelize.sync({ force: false });
         console.log('Database synchronized.');
 
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
+            console.log(`Domain configured for: hrmsbackend.webby.one (requires reverse proxy setup)`);
         });
     } catch (error) {
         console.error('Unable to connect to the database:', error);
