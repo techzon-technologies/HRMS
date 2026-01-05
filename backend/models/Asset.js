@@ -8,7 +8,16 @@ const Asset = sequelize.define('Asset', {
         primaryKey: true,
         autoIncrement: true
     },
+    asset_tag: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
     name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    category: {
         type: DataTypes.STRING,
         allowNull: false
     },
@@ -49,7 +58,7 @@ const Asset = sequelize.define('Asset', {
 
 // Define associations
 Asset.associate = (models) => {
-    Asset.belongsTo(models.Employee, { 
+    Asset.belongsTo(models.Employee, {
         foreignKey: 'assigned_to',
         as: 'employee'
     });

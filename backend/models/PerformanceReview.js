@@ -19,11 +19,19 @@ const PerformanceReview = sequelize.define('PerformanceReview', {
     },
     reviewer_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: {
             model: Employee,
             key: 'id'
         }
+    },
+    department: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    review_period: {
+        type: DataTypes.STRING,
+        allowNull: true
     },
     review_period_start: {
         type: DataTypes.DATEONLY,
@@ -37,12 +45,20 @@ const PerformanceReview = sequelize.define('PerformanceReview', {
         type: DataTypes.DECIMAL(2, 1), // e.g., 4.5
         allowNull: true
     },
+    goals: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    completed: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
     comments: {
         type: DataTypes.TEXT,
         allowNull: true
     },
     status: {
-        type: DataTypes.ENUM('scheduled', 'completed', 'acknowledged'),
+        type: DataTypes.ENUM('scheduled', 'in_progress', 'completed', 'acknowledged'),
         defaultValue: 'scheduled'
     }
 }, {

@@ -24,6 +24,7 @@ import ComplianceAudit from "./pages/ComplianceAudit";
 import Performance from "./pages/Performance";
 import CompanyExpenses from "./pages/CompanyExpenses";
 import CompanyAssets from "./pages/CompanyAssets";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -35,7 +36,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
@@ -57,6 +58,7 @@ const App = () => (
           <Route path="/health-insurance" element={<ProtectedRoute><HealthInsurance /></ProtectedRoute>} />
           <Route path="/compliance" element={<ProtectedRoute><ComplianceAudit /></ProtectedRoute>} />
           <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

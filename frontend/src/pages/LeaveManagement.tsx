@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,15 +25,19 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Check, X, Clock, Plus } from "lucide-react";
+import { apiService } from "@/lib/api";
+
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  department: string;
+}
 
 interface LeaveRequest {
   id: number;
-  employee: {
-    name: string;
-    avatar: string;
-    initials: string;
-    department: string;
-  };
+  employeeId: number;
+  employee: Employee;
   type: string;
   startDate: string;
   endDate: string;
@@ -42,138 +46,107 @@ interface LeaveRequest {
   reason: string;
 }
 
-const initialLeaveRequests: LeaveRequest[] = [
-  {
-    id: 1,
-    employee: {
-      name: "Sarah Johnson",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=40&h=40&fit=crop&crop=face",
-      initials: "SJ",
-      department: "Marketing",
-    },
-    type: "Annual Leave",
-    startDate: "Dec 28, 2024",
-    endDate: "Jan 2, 2025",
-    days: 4,
-    status: "pending",
-    reason: "Family vacation",
-  },
-  {
-    id: 2,
-    employee: {
-      name: "James Wilson",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face",
-      initials: "JW",
-      department: "Engineering",
-    },
-    type: "Sick Leave",
-    startDate: "Dec 27, 2024",
-    endDate: "Dec 27, 2024",
-    days: 1,
-    status: "pending",
-    reason: "Medical appointment",
-  },
-  {
-    id: 3,
-    employee: {
-      name: "Emily Davis",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face",
-      initials: "ED",
-      department: "Design",
-    },
-    type: "Personal Leave",
-    startDate: "Dec 30, 2024",
-    endDate: "Dec 30, 2024",
-    days: 1,
-    status: "pending",
-    reason: "Personal errands",
-  },
-  {
-    id: 4,
-    employee: {
-      name: "Michael Chen",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face",
-      initials: "MC",
-      department: "Engineering",
-    },
-    type: "Annual Leave",
-    startDate: "Jan 6, 2025",
-    endDate: "Jan 10, 2025",
-    days: 5,
-    status: "approved",
-    reason: "Winter break",
-  },
-  {
-    id: 5,
-    employee: {
-      name: "Lisa Anderson",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&crop=face",
-      initials: "LA",
-      department: "Human Resources",
-    },
-    type: "Sick Leave",
-    startDate: "Dec 20, 2024",
-    endDate: "Dec 21, 2024",
-    days: 2,
-    status: "approved",
-    reason: "Flu recovery",
-  },
-];
-
-const leaveBalances = [
-  { type: "Annual Leave", used: 12, total: 20, color: "bg-primary" },
-  { type: "Sick Leave", used: 3, total: 10, color: "bg-chart-3" },
-  { type: "Personal Leave", used: 2, total: 5, color: "bg-chart-4" },
-  { type: "Unpaid Leave", used: 0, total: 30, color: "bg-chart-5" },
-];
-
-const statusBadge = (status: string) => {
-  switch (status) {
-    case "pending":
-      return <Badge variant="secondary">Pending</Badge>;
-    case "approved":
-      return <Badge variant="default">Approved</Badge>;
-    case "rejected":
-      return <Badge variant="destructive">Rejected</Badge>;
-    default:
-      return <Badge variant="outline">{status}</Badge>;
-  }
-};
-
 const LeaveManagement = () => {
   const { toast } = useToast();
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(initialLeaveRequests);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Stats state
+  const [stats, setStats] = useState([
+    { type: "Annual Leave", used: 0, total: 20, color: "bg-primary" },
+    { type: "Sick Leave", used: 0, total: 10, color: "bg-chart-3" },
+    { type: "Personal Leave", used: 0, total: 5, color: "bg-chart-4" },
+    { type: "Unpaid Leave", used: 0, total: 30, color: "bg-chart-5" },
+  ]);
+
   const [newRequest, setNewRequest] = useState({
+    employeeId: "",
     type: "",
     startDate: "",
     endDate: "",
     reason: "",
   });
 
-  const handleApprove = (request: LeaveRequest) => {
-    setLeaveRequests(leaveRequests.map((r) =>
-      r.id === request.id ? { ...r, status: "approved" } : r
-    ));
-    toast({
-      title: "Leave Approved",
-      description: `${request.employee.name}'s ${request.type} request has been approved.`,
-    });
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [leavesData, employeesData] = await Promise.all([
+        apiService.leaves.getAll(),
+        apiService.employees.getAll()
+      ]);
+
+      setLeaveRequests(leavesData as unknown as LeaveRequest[]);
+      setEmployees(employeesData as unknown as Employee[]);
+
+      // Calculate stats based on approved leaves
+      const newStats = stats.map(stat => {
+        const used = (leavesData as unknown as LeaveRequest[])
+          .filter((l) => l.type === stat.type && l.status === 'approved')
+          .reduce((acc, curr) => acc + curr.days, 0);
+        return { ...stat, used };
+      });
+      setStats(newStats);
+
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+      toast({
+        title: "Error",
+        description: "Failed to load leave requests.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleReject = (request: LeaveRequest) => {
-    setLeaveRequests(leaveRequests.map((r) =>
-      r.id === request.id ? { ...r, status: "rejected" } : r
-    ));
-    toast({
-      title: "Leave Rejected",
-      description: `${request.employee.name}'s ${request.type} request has been rejected.`,
-      variant: "destructive",
-    });
+  const handleApprove = async (request: LeaveRequest) => {
+    try {
+      await apiService.leaves.approve(request.id);
+      setLeaveRequests(leaveRequests.map((r) =>
+        r.id === request.id ? { ...r, status: "approved" } : r
+      ));
+      toast({
+        title: "Leave Approved",
+        description: `Request has been approved.`,
+      });
+      fetchData(); // Refresh stats
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to approve request.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSubmitRequest = () => {
-    if (!newRequest.type || !newRequest.startDate || !newRequest.endDate) {
+  const handleReject = async (request: LeaveRequest) => {
+    try {
+      await apiService.leaves.reject(request.id);
+      setLeaveRequests(leaveRequests.map((r) =>
+        r.id === request.id ? { ...r, status: "rejected" } : r
+      ));
+      toast({
+        title: "Leave Rejected",
+        description: `Request has been rejected.`,
+        variant: "destructive",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reject request.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmitRequest = async () => {
+    if (!newRequest.employeeId || !newRequest.type || !newRequest.startDate || !newRequest.endDate) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -182,36 +155,61 @@ const LeaveManagement = () => {
       return;
     }
 
-    const request: LeaveRequest = {
-      id: leaveRequests.length + 1,
-      employee: {
-        name: "Current User",
-        avatar: "",
-        initials: "CU",
-        department: "Your Department",
-      },
-      type: newRequest.type,
-      startDate: new Date(newRequest.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      endDate: new Date(newRequest.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      days: Math.ceil((new Date(newRequest.endDate).getTime() - new Date(newRequest.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1,
-      status: "pending",
-      reason: newRequest.reason,
-    };
+    const start = new Date(newRequest.startDate);
+    const end = new Date(newRequest.endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    setLeaveRequests([request, ...leaveRequests]);
-    setNewRequest({ type: "", startDate: "", endDate: "", reason: "" });
-    setIsRequestDialogOpen(false);
-    toast({
-      title: "Leave Request Submitted",
-      description: `Your ${request.type} request for ${request.days} day(s) has been submitted.`,
-    });
+    try {
+      const payload = {
+        employeeId: parseInt(newRequest.employeeId),
+        type: newRequest.type,
+        startDate: newRequest.startDate,
+        endDate: newRequest.endDate,
+        days: days,
+        reason: newRequest.reason,
+      };
+
+      const created = await apiService.leaves.create(payload);
+      setLeaveRequests([created as unknown as LeaveRequest, ...leaveRequests]);
+
+      setNewRequest({ employeeId: "", type: "", startDate: "", endDate: "", reason: "" });
+      setIsRequestDialogOpen(false);
+      toast({
+        title: "Leave Request Submitted",
+        description: `Request for ${days} day(s) has been submitted.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to submit leave request.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`;
+  };
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge variant="secondary">Pending</Badge>;
+      case "approved":
+        return <Badge variant="default">Approved</Badge>;
+      case "rejected":
+        return <Badge variant="destructive">Rejected</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   return (
     <MainLayout title="Leave Management" subtitle="Manage time off requests">
       {/* Quick Stats */}
       <div className="mb-6 grid gap-6 md:grid-cols-4">
-        {leaveBalances.map((leave) => (
+        {stats.map((leave) => (
           <Card key={leave.type}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -228,7 +226,7 @@ const LeaveManagement = () => {
               <div className="mt-3 h-2 w-full rounded-full bg-muted">
                 <div
                   className={`h-2 rounded-full ${leave.color}`}
-                  style={{ width: `${(leave.used / leave.total) * 100}%` }}
+                  style={{ width: `${Math.min((leave.used / leave.total) * 100, 100)}%` }}
                 />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -268,12 +266,11 @@ const LeaveManagement = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-12 w-12">
-                        <AvatarImage src={request.employee.avatar} />
-                        <AvatarFallback>{request.employee.initials}</AvatarFallback>
+                        <AvatarFallback>{getInitials(request.employee?.firstName, request.employee?.lastName)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="font-semibold text-foreground">{request.employee.name}</h3>
-                        <p className="text-sm text-muted-foreground">{request.employee.department}</p>
+                        <h3 className="font-semibold text-foreground">{request.employee?.firstName} {request.employee?.lastName}</h3>
+                        <p className="text-sm text-muted-foreground">{request.employee?.department}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -332,12 +329,11 @@ const LeaveManagement = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <Avatar className="h-12 w-12">
-                        <AvatarImage src={request.employee.avatar} />
-                        <AvatarFallback>{request.employee.initials}</AvatarFallback>
+                        <AvatarFallback>{getInitials(request.employee?.firstName, request.employee?.lastName)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="font-semibold text-foreground">{request.employee.name}</h3>
-                        <p className="text-sm text-muted-foreground">{request.employee.department}</p>
+                        <h3 className="font-semibold text-foreground">{request.employee?.firstName} {request.employee?.lastName}</h3>
+                        <p className="text-sm text-muted-foreground">{request.employee?.department}</p>
                       </div>
                     </div>
                     {statusBadge(request.status)}
@@ -372,11 +368,10 @@ const LeaveManagement = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
-                      <AvatarImage src={request.employee.avatar} />
-                      <AvatarFallback>{request.employee.initials}</AvatarFallback>
+                      <AvatarFallback>{getInitials(request.employee?.firstName, request.employee?.lastName)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-semibold text-foreground">{request.employee.name}</h3>
+                      <h3 className="font-semibold text-foreground">{request.employee?.firstName} {request.employee?.lastName}</h3>
                       <p className="text-sm text-muted-foreground">{request.type} • {request.days} day{request.days > 1 ? "s" : ""}</p>
                     </div>
                   </div>
@@ -403,6 +398,24 @@ const LeaveManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="employee">Employee</Label>
+              <Select
+                value={newRequest.employeeId}
+                onValueChange={(value) => setNewRequest({ ...newRequest, employeeId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="type">Leave Type</Label>
               <Select

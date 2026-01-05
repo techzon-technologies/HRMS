@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Truck, Wrench, CheckCircle, AlertTriangle, Eye, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Truck, Wrench, CheckCircle, AlertTriangle, Eye, Edit, Trash2, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface VehicleRecord {
   id: number;
@@ -42,18 +57,32 @@ interface VehicleRecord {
   nextService: string;
 }
 
-const initialVehicleData: VehicleRecord[] = [
-  { id: 1, plateNo: "ABC-1234", make: "Toyota", model: "Hilux", year: "2022", assignedTo: "Ahmed Hassan", status: "Active", nextService: "2024-08-15" },
-  { id: 2, plateNo: "XYZ-5678", make: "Nissan", model: "Patrol", year: "2021", assignedTo: "Pool Vehicle", status: "Active", nextService: "2024-07-20" },
-  { id: 3, plateNo: "DEF-9012", make: "Ford", model: "Ranger", year: "2023", assignedTo: "Mohammed Khan", status: "In Service", nextService: "2024-06-30" },
-  { id: 4, plateNo: "GHI-3456", make: "Mitsubishi", model: "Pajero", year: "2020", assignedTo: "Pool Vehicle", status: "Active", nextService: "2024-09-01" },
-  { id: 5, plateNo: "JKL-7890", make: "Toyota", model: "Land Cruiser", year: "2023", assignedTo: "Management", status: "Active", nextService: "2024-10-15" },
-];
-
 export default function VehicleManagement() {
   const { toast } = useToast();
-  const [vehicleData, setVehicleData] = useState<VehicleRecord[]>(initialVehicleData);
+  const [vehicleData, setVehicleData] = useState<VehicleRecord[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [employeeSearchOpen, setEmployeeSearchOpen] = useState(false);
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  const fetchVehicles = async () => {
+    try {
+      const [vehiclesData, employeesData] = await Promise.all([
+        apiService.vehicles.getAll(),
+        apiService.employees.getAll()
+      ]);
+
+      setVehicleData(vehiclesData);
+      setEmployees(employeesData);
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -63,16 +92,21 @@ export default function VehicleManagement() {
     make: "",
     model: "",
     year: "",
-    assignedTo: "",
+    assignedDriverId: "", // Changed from assignedTo string
     status: "Active",
     nextService: "",
   });
 
-  const filteredData = vehicleData.filter((v) =>
-    v.plateNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.make.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.assignedTo.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredData = vehicleData.filter((v) => {
+    const matchesSearch =
+      (v.plateNo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (v.make || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (v.assignedTo || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus = statusFilter === "All" || v.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
 
   const stats = [
     { label: "Total Vehicles", value: vehicleData.length.toString(), icon: Truck, color: "text-primary" },
@@ -81,29 +115,90 @@ export default function VehicleManagement() {
     { label: "Out of Service", value: vehicleData.filter(v => v.status === "Out of Service").length.toString(), icon: AlertTriangle, color: "text-destructive" },
   ];
 
-  const handleAdd = () => {
-    const newVehicle: VehicleRecord = { id: vehicleData.length + 1, ...formData };
-    setVehicleData([...vehicleData, newVehicle]);
-    setIsAddDialogOpen(false);
-    setFormData({ plateNo: "", make: "", model: "", year: "", assignedTo: "", status: "Active", nextService: "" });
-    toast({ title: "Vehicle Added", description: `Vehicle ${formData.plateNo} has been added.` });
+  const getServiceStatusColor = (dateString: string) => {
+    if (!dateString) return "";
+    const today = new Date();
+    const serviceDate = new Date(dateString);
+    const diffTime = serviceDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return "text-red-600 font-bold"; // Overdue
+    if (diffDays <= 30) return "text-amber-600 font-bold"; // Upcoming in 30 days
+    return "text-green-600";
   };
 
-  const handleEdit = () => {
+  const handleAdd = async () => {
+    try {
+      await apiService.vehicles.create({
+        plateNumber: formData.plateNo,
+        make: formData.make,
+        model: formData.model,
+        year: formData.year, // Backend might ignore this if not in schema, but good to send
+        type: 'car', // Default or add select
+        status: formData.status, // api.ts now handles mapping
+        nextService: formData.nextService,
+        assignedDriverId: formData.assignedDriverId ? parseInt(formData.assignedDriverId) : null
+      });
+      toast({ title: "Vehicle Added", description: `Vehicle ${formData.plateNo} has been added.` });
+      setIsAddDialogOpen(false);
+      setFormData({ plateNo: "", make: "", model: "", year: "", assignedDriverId: "", status: "Active", nextService: "" });
+      setEmployeeSearch(""); // Reset search
+      fetchVehicles();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add vehicle", variant: "destructive" });
+    }
+  };
+
+  const handleEdit = async () => {
     if (!selectedVehicle) return;
-    setVehicleData(vehicleData.map((v) => v.id === selectedVehicle.id ? { ...v, ...formData } : v));
-    setIsEditDialogOpen(false);
-    toast({ title: "Vehicle Updated", description: "Vehicle has been updated successfully." });
+    try {
+      await apiService.vehicles.update(selectedVehicle.id, {
+        plateNumber: formData.plateNo,
+        make: formData.make,
+        model: formData.model,
+        year: formData.year,
+        status: formData.status,
+        nextService: formData.nextService,
+        assignedDriverId: formData.assignedDriverId ? parseInt(formData.assignedDriverId) : null
+      });
+      toast({ title: "Vehicle Updated", description: "Vehicle has been updated successfully." });
+      setIsEditDialogOpen(false);
+      fetchVehicles();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update vehicle", variant: "destructive" });
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setVehicleData(vehicleData.filter((v) => v.id !== id));
-    toast({ title: "Vehicle Deleted", description: "Vehicle has been deleted." });
+  const handleDelete = async (id: number) => {
+    try {
+      await apiService.vehicles.delete(id);
+      toast({ title: "Vehicle Deleted", description: "Vehicle has been deleted." });
+      fetchVehicles(); // Refresh list
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete vehicle", variant: "destructive" });
+    }
   };
 
   const openEditDialog = (vehicle: VehicleRecord) => {
     setSelectedVehicle(vehicle);
-    setFormData({ plateNo: vehicle.plateNo, make: vehicle.make, model: vehicle.model, year: vehicle.year, assignedTo: vehicle.assignedTo, status: vehicle.status, nextService: vehicle.nextService });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setFormData({
+      plateNo: vehicle.plateNo,
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      assignedDriverId: (vehicle as any).assignedDriverId?.toString() || "",
+      status: vehicle.status,
+      nextService: vehicle.nextService
+    });
+    // Set initial search value for edit
+    if ((vehicle as any).assignedDriverId) {
+      const emp = employees.find(e => e.id.toString() === (vehicle as any).assignedDriverId?.toString());
+      if (emp) setEmployeeSearch(`${emp.firstName} ${emp.lastName}`);
+      else setEmployeeSearch("");
+    } else {
+      setEmployeeSearch("");
+    }
     setIsEditDialogOpen(true);
   };
 
@@ -134,6 +229,17 @@ export default function VehicleManagement() {
             <div className="flex items-center justify-between">
               <CardTitle>Vehicle Fleet</CardTitle>
               <div className="flex items-center gap-4">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Statuses</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="In Service">In Service</SelectItem>
+                    <SelectItem value="Out of Service">Out of Service</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input placeholder="Search vehicles..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -162,9 +268,9 @@ export default function VehicleManagement() {
                     <TableCell className="font-medium">{vehicle.plateNo}</TableCell>
                     <TableCell>{vehicle.make}</TableCell>
                     <TableCell>{vehicle.model}</TableCell>
-                    <TableCell>{vehicle.year}</TableCell>
+                    <TableCell>{vehicle.year || "N/A"}</TableCell>
                     <TableCell>{vehicle.assignedTo}</TableCell>
-                    <TableCell>{vehicle.nextService}</TableCell>
+                    <TableCell className={getServiceStatusColor(vehicle.nextService)}>{vehicle.nextService}</TableCell>
                     <TableCell>
                       <Badge variant={vehicle.status === "Active" ? "default" : vehicle.status === "In Service" ? "secondary" : "destructive"}>{vehicle.status}</Badge>
                     </TableCell>
@@ -194,7 +300,61 @@ export default function VehicleManagement() {
               <div className="space-y-2"><Label>Model</Label><Input value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} /></div>
               <div className="space-y-2"><Label>Year</Label><Input value={formData.year} onChange={(e) => setFormData({ ...formData, year: e.target.value })} /></div>
             </div>
-            <div className="space-y-2"><Label>Assigned To</Label><Input value={formData.assignedTo} onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })} /></div>
+            <div className="space-y-2">
+              <div className="space-y-2">
+                <Label>Assigned To</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Popover open={employeeSearchOpen} onOpenChange={setEmployeeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <div>
+                        <Input
+                          className="pl-8"
+                          placeholder="Search Employee..."
+                          value={employeeSearch}
+                          onChange={(e) => {
+                            setEmployeeSearch(e.target.value);
+                            setEmployeeSearchOpen(e.target.value.length > 0);
+                            if (formData.assignedDriverId) setFormData({ ...formData, assignedDriverId: "" });
+                          }}
+                        />
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="p-0 w-[--radix-popover-trigger-width]"
+                      align="start"
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
+                      <Command>
+                        <CommandList>
+                          {employees.filter(emp => `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(employeeSearch.toLowerCase())).length === 0 && (
+                            <div className="p-2 text-sm text-muted-foreground">No employee found.</div>
+                          )}
+                          {employees.filter(emp => `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(employeeSearch.toLowerCase())).map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              onSelect={() => {
+                                setFormData({ ...formData, assignedDriverId: employee.id.toString() })
+                                setEmployeeSearch(`${employee.firstName} ${employee.lastName}`)
+                                setEmployeeSearchOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.assignedDriverId === employee.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {employee.firstName} {employee.lastName}
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </div>
             <div className="space-y-2"><Label>Next Service Date</Label><Input type="date" value={formData.nextService} onChange={(e) => setFormData({ ...formData, nextService: e.target.value })} /></div>
           </div>
           <DialogFooter>
@@ -215,7 +375,61 @@ export default function VehicleManagement() {
               <div className="space-y-2"><Label>Model</Label><Input value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} /></div>
               <div className="space-y-2"><Label>Year</Label><Input value={formData.year} onChange={(e) => setFormData({ ...formData, year: e.target.value })} /></div>
             </div>
-            <div className="space-y-2"><Label>Assigned To</Label><Input value={formData.assignedTo} onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })} /></div>
+            <div className="space-y-2">
+              <div className="space-y-2">
+                <Label>Assigned To</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Popover open={employeeSearchOpen} onOpenChange={setEmployeeSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <div>
+                        <Input
+                          className="pl-8"
+                          placeholder="Search Employee..."
+                          value={employeeSearch}
+                          onChange={(e) => {
+                            setEmployeeSearch(e.target.value);
+                            setEmployeeSearchOpen(e.target.value.length > 0);
+                            if (formData.assignedDriverId) setFormData({ ...formData, assignedDriverId: "" });
+                          }}
+                        />
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="p-0 w-[--radix-popover-trigger-width]"
+                      align="start"
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
+                      <Command>
+                        <CommandList>
+                          {employees.filter(emp => `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(employeeSearch.toLowerCase())).length === 0 && (
+                            <div className="p-2 text-sm text-muted-foreground">No employee found.</div>
+                          )}
+                          {employees.filter(emp => `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(employeeSearch.toLowerCase())).map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              onSelect={() => {
+                                setFormData({ ...formData, assignedDriverId: employee.id.toString() })
+                                setEmployeeSearch(`${employee.firstName} ${employee.lastName}`)
+                                setEmployeeSearchOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.assignedDriverId === employee.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {employee.firstName} {employee.lastName}
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </div>
             <div className="space-y-2"><Label>Next Service Date</Label><Input type="date" value={formData.nextService} onChange={(e) => setFormData({ ...formData, nextService: e.target.value })} /></div>
             <div className="space-y-2"><Label>Status</Label>
               <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>

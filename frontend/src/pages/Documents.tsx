@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
+
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
 interface Document {
   id: number;
   name: string;
@@ -37,17 +45,9 @@ interface Document {
   uploadedBy: string;
   uploadedAt: string;
   size: string;
-  icon: React.ComponentType<{ className?: string }>;
+  fileUrl: string;
+  icon: any;
 }
-
-const initialDocuments: Document[] = [
-  { id: 1, name: "Employment Contract - Sarah Johnson", type: "Contract", category: "Legal", uploadedBy: "HR Admin", uploadedAt: "Dec 15, 2024", size: "245 KB", icon: FileText },
-  { id: 2, name: "ID Document - Michael Chen", type: "ID", category: "Personal", uploadedBy: "HR Admin", uploadedAt: "Dec 10, 2024", size: "1.2 MB", icon: FileImage },
-  { id: 3, name: "Tax Form W-4 - Emily Davis", type: "Tax", category: "Financial", uploadedBy: "Finance Team", uploadedAt: "Dec 5, 2024", size: "89 KB", icon: FileSpreadsheet },
-  { id: 4, name: "Performance Review - James Wilson", type: "Review", category: "HR", uploadedBy: "HR Manager", uploadedAt: "Nov 28, 2024", size: "156 KB", icon: FileText },
-  { id: 5, name: "Training Certificate - Lisa Anderson", type: "Certificate", category: "Training", uploadedBy: "Training Dept", uploadedAt: "Nov 20, 2024", size: "320 KB", icon: FileImage },
-  { id: 6, name: "Salary Slip - David Kim", type: "Payroll", category: "Financial", uploadedBy: "Payroll System", uploadedAt: "Nov 15, 2024", size: "78 KB", icon: FileSpreadsheet },
-];
 
 const categoryBadge = (category: string) => {
   switch (category) {
@@ -68,16 +68,54 @@ const categoryBadge = (category: string) => {
 
 const Documents = () => {
   const { toast } = useToast();
-  const [documents, setDocuments] = useState<Document[]>(initialDocuments);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [docsData, employeesData] = await Promise.all([
+        apiService.documents.getAll(),
+        apiService.employees.getAll()
+      ]);
+
+      const mappedData = docsData.map((d: any) => ({
+        id: d.id,
+        name: d.title || d.name || "Untitled",
+        type: d.type || "Document",
+        category: d.category || "General",
+        uploadedBy: d.employee ? `${d.employee.firstName} ${d.employee.lastName}` : "Unknown",
+        uploadedAt: new Date(d.uploadedAt || d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        size: d.size || "Unknown",
+        fileUrl: d.fileUrl || "#",
+        icon: FileText,
+      }));
+      setDocuments(mappedData);
+      setEmployees(employeesData as unknown as Employee[]);
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+      toast({
+        title: "Error",
+        description: "Failed to load data.",
+        variant: "destructive",
+      });
+    }
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [formData, setFormData] = useState({
+    employeeId: "",
     name: "",
     type: "",
     category: "Legal",
+    fileUrl: "",
+    size: ""
   });
 
   const filteredDocuments = documents.filter((doc) => {
@@ -86,30 +124,82 @@ const Documents = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleUpload = () => {
-    const newDoc: Document = {
-      id: documents.length + 1,
-      name: formData.name,
-      type: formData.type,
-      category: formData.category,
-      uploadedBy: "Current User",
-      uploadedAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      size: "100 KB",
-      icon: FileText,
-    };
-    setDocuments([...documents, newDoc]);
-    setIsUploadDialogOpen(false);
-    setFormData({ name: "", type: "", category: "Legal" });
-    toast({ title: "Document Uploaded", description: `${formData.name} has been uploaded successfully.` });
+  const handleUpload = async () => {
+    if (!formData.employeeId || !formData.name || !formData.fileUrl) {
+      toast({ title: "Validation Error", description: "Please select an employee, enter name, and upload a file.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      // Map frontend 'name' to backend 'title'
+      const payload = {
+        employeeId: parseInt(formData.employeeId),
+        title: formData.name,
+        type: formData.type || 'other',
+        category: formData.category,
+        fileUrl: formData.fileUrl,
+        size: formData.size
+      };
+
+      await apiService.documents.create(payload);
+
+      toast({ title: "Document Uploaded", description: `${formData.name} has been created successfully.` });
+      setIsUploadDialogOpen(false);
+      setFormData({ employeeId: "", name: "", type: "", category: "Legal", fileUrl: "", size: "" });
+      fetchData();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to upload document.", variant: "destructive" });
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+
+      // Read file as Base64
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData({
+          ...formData,
+          name: formData.name || file.name,
+          type: file.type || "Document", // checking file.type for MIME
+          size: `${(file.size / 1024).toFixed(1)} KB`,
+          fileUrl: event.target?.result as string // Store Base64 string
+        });
+      };
+      reader.readAsDataURL(file);
+
+      toast({ title: "File Selected", description: `${file.name} ready for upload.` });
+    }
   };
 
   const handleDownload = (doc: Document) => {
-    toast({ title: "Download Started", description: `Downloading ${doc.name}...` });
+    if (!doc.fileUrl || doc.fileUrl === '#') {
+      toast({ title: "Error", description: "File not found.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const link = document.createElement('a');
+      link.href = doc.fileUrl;
+      link.download = doc.name; // This will hint the browser to save with this name
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: "Download Started", description: `Downloading ${doc.name}...` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to download file.", variant: "destructive" });
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setDocuments(documents.filter((d) => d.id !== id));
-    toast({ title: "Document Deleted", description: "Document has been deleted." });
+  const handleDelete = async (id: number) => {
+    try {
+      await apiService.documents.delete(id);
+      setDocuments(documents.filter((d) => d.id !== id));
+      toast({ title: "Document Deleted", description: "Document has been deleted." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete document.", variant: "destructive" });
+    }
   };
 
   const handleView = (doc: Document) => {
@@ -147,17 +237,17 @@ const Documents = () => {
       </div>
 
       {/* Documents Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredDocuments.map((doc) => (
           <Card key={doc.id} className="transition-shadow hover:shadow-md">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="rounded-lg bg-accent p-3">
                     <doc.icon className="h-6 w-6 text-accent-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-foreground truncate">{doc.name}</h3>
+                    <h3 className="font-medium text-foreground truncate" title={doc.name}>{doc.name}</h3>
                     <p className="text-sm text-muted-foreground">{doc.type}</p>
                   </div>
                 </div>
@@ -206,8 +296,21 @@ const Documents = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label>Employee</Label>
+              <Select value={formData.employeeId} onValueChange={(value) => setFormData({ ...formData, employeeId: value })}>
+                <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Document Name</Label>
-              <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Employment Contract - John Doe" />
+              <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Employment Contract" />
             </div>
             <div className="space-y-2">
               <Label>Document Type</Label>
@@ -226,9 +329,21 @@ const Documents = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => document.getElementById('file-upload')?.click()}
+            >
+              <input
+                id="file-upload"
+                type="file"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
               <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">Drag and drop or click to upload</p>
+              {formData.fileUrl && (
+                <p className="text-xs text-primary mt-2 font-medium">Selected: {formData.name} ({formData.size})</p>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -244,17 +359,34 @@ const Documents = () => {
           <DialogHeader><DialogTitle>Document Details</DialogTitle></DialogHeader>
           {selectedDoc && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-accent p-4">
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg bg-accent p-4 hidden sm:block">
                   <selectedDoc.icon className="h-8 w-8 text-accent-foreground" />
                 </div>
-                <div>
-                  <h3 className="font-semibold">{selectedDoc.name}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedDoc.type}</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-lg break-words">{selectedDoc.name}</h3>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    <Badge variant="outline">{selectedDoc.type}</Badge>
+                    {categoryBadge(selectedDoc.category)}
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label className="text-muted-foreground">Category</Label><div className="mt-1">{categoryBadge(selectedDoc.category)}</div></div>
+
+              {/* Preview Section */}
+              <div className="mt-4 border rounded-lg overflow-hidden bg-muted/20 min-h-[200px] flex items-center justify-center">
+                {selectedDoc.fileUrl && selectedDoc.fileUrl.startsWith('data:image') ? (
+                  <img src={selectedDoc.fileUrl} alt="Preview" className="max-w-full max-h-[400px] object-contain" />
+                ) : selectedDoc.fileUrl && selectedDoc.type === 'application/pdf' ? (
+                  <iframe src={selectedDoc.fileUrl} className="w-full h-[400px]" title="PDF Preview"></iframe>
+                ) : (
+                  <div className="text-center p-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Preview not available for this file type.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div><Label className="text-muted-foreground">Size</Label><p className="font-medium">{selectedDoc.size}</p></div>
                 <div><Label className="text-muted-foreground">Uploaded By</Label><p className="font-medium">{selectedDoc.uploadedBy}</p></div>
                 <div><Label className="text-muted-foreground">Upload Date</Label><p className="font-medium">{selectedDoc.uploadedAt}</p></div>

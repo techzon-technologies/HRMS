@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,69 +42,132 @@ interface LicenceRecord {
   status: string;
 }
 
-const initialLicenceData: LicenceRecord[] = [
-  { id: 1, employee: "Ahmed Hassan", licenceNo: "DL-2024-001", category: "Light Vehicle", issueDate: "2023-05-15", expiryDate: "2028-05-14", status: "Active" },
-  { id: 2, employee: "Omar Abdullah", licenceNo: "DL-2024-002", category: "Heavy Vehicle", issueDate: "2022-08-20", expiryDate: "2024-08-19", status: "Expiring Soon" },
-  { id: 3, employee: "Mohammed Khan", licenceNo: "DL-2024-003", category: "Light Vehicle", issueDate: "2024-01-10", expiryDate: "2029-01-09", status: "Active" },
-  { id: 4, employee: "Khalid Ibrahim", licenceNo: "DL-2024-004", category: "Motorcycle", issueDate: "2021-11-01", expiryDate: "2024-10-31", status: "Expired" },
-  { id: 5, employee: "Yusuf Mahmoud", licenceNo: "DL-2024-005", category: "Light Vehicle", issueDate: "2023-02-28", expiryDate: "2028-02-27", status: "Active" },
-];
-
 export default function DrivingLicence() {
   const { toast } = useToast();
-  const [licenceData, setLicenceData] = useState<LicenceRecord[]>(initialLicenceData);
+  const [licenceData, setLicenceData] = useState<LicenceRecord[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedLicence, setSelectedLicence] = useState<LicenceRecord | null>(null);
   const [formData, setFormData] = useState({
-    employee: "",
+    employeeId: "", // Changed from employee string to ID
     licenceNo: "",
     category: "Light Vehicle",
     issueDate: "",
     expiryDate: "",
     status: "Active",
   });
+  const [statsData, setStatsData] = useState<any[]>([]);
+
+  const fetchData = async () => {
+    try {
+      const [licences, employeesData] = await Promise.all([
+        apiService.drivingLicences.getAll(),
+        apiService.employees.getAll()
+      ]);
+
+      const formattedLicences = licences.map((l: any) => ({
+        id: l.id,
+        employee: l.employee ? `${l.employee.firstName} ${l.employee.lastName}` : "Unknown",
+        employeeId: l.employeeId, // Keep for editing
+        licenceNo: l.licenceNo,
+        category: l.category,
+        issueDate: l.issueDate,
+        expiryDate: l.expiryDate,
+        status: l.status
+      }));
+
+      setLicenceData(formattedLicences);
+      setEmployees(employeesData);
+
+      // Stats
+      const total = formattedLicences.length;
+      const active = formattedLicences.filter((l: any) => l.status === 'Active').length;
+      const expiring = formattedLicences.filter((l: any) => l.status === 'Expiring Soon').length;
+      const expired = formattedLicences.filter((l: any) => l.status === 'Expired').length;
+
+      setStatsData([
+        { label: "Total Licences", value: total.toString(), icon: Car, color: "text-primary" },
+        { label: "Active", value: active.toString(), icon: CheckCircle, color: "text-emerald-600" },
+        { label: "Expiring Soon", value: expiring.toString(), icon: Clock, color: "text-amber-600" },
+        { label: "Expired", value: expired.toString(), icon: AlertTriangle, color: "text-destructive" },
+      ]);
+
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to fetch data", variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filteredData = licenceData.filter((licence) =>
     licence.employee.toLowerCase().includes(searchQuery.toLowerCase()) ||
     licence.licenceNo.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const stats = [
-    { label: "Total Licences", value: licenceData.length.toString(), icon: Car, color: "text-primary" },
-    { label: "Active", value: licenceData.filter(l => l.status === "Active").length.toString(), icon: CheckCircle, color: "text-emerald-600" },
-    { label: "Expiring Soon", value: licenceData.filter(l => l.status === "Expiring Soon").length.toString(), icon: Clock, color: "text-amber-600" },
-    { label: "Expired", value: licenceData.filter(l => l.status === "Expired").length.toString(), icon: AlertTriangle, color: "text-destructive" },
-  ];
-
-  const handleAdd = () => {
-    const newLicence: LicenceRecord = {
-      id: licenceData.length + 1,
-      ...formData,
-    };
-    setLicenceData([...licenceData, newLicence]);
-    setIsAddDialogOpen(false);
-    setFormData({ employee: "", licenceNo: "", category: "Light Vehicle", issueDate: "", expiryDate: "", status: "Active" });
-    toast({ title: "Licence Added", description: `Driving licence for ${formData.employee} has been added.` });
+  const handleAdd = async () => {
+    try {
+      await apiService.drivingLicences.create({
+        employeeId: parseInt(formData.employeeId),
+        licenceNo: formData.licenceNo,
+        category: formData.category,
+        issueDate: formData.issueDate,
+        expiryDate: formData.expiryDate,
+        status: formData.status
+      });
+      toast({ title: "Success", description: "Licence record added successfully." });
+      setIsAddDialogOpen(false);
+      setFormData({ employeeId: "", licenceNo: "", category: "Light Vehicle", issueDate: "", expiryDate: "", status: "Active" });
+      fetchData();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to create licence.", variant: "destructive" });
+    }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!selectedLicence) return;
-    setLicenceData(licenceData.map((l) => l.id === selectedLicence.id ? { ...l, ...formData } : l));
-    setIsEditDialogOpen(false);
-    toast({ title: "Licence Updated", description: "Driving licence has been updated successfully." });
+    try {
+      await apiService.drivingLicences.update(selectedLicence.id, {
+        employeeId: parseInt(formData.employeeId),
+        licenceNo: formData.licenceNo,
+        category: formData.category,
+        issueDate: formData.issueDate,
+        expiryDate: formData.expiryDate,
+        status: formData.status
+      });
+      toast({ title: "Updated", description: "Licence record updated." });
+      setIsEditDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update licence.", variant: "destructive" });
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setLicenceData(licenceData.filter((l) => l.id !== id));
-    toast({ title: "Licence Deleted", description: "Driving licence has been deleted." });
+  const handleDelete = async (id: number) => {
+    try {
+      await apiService.drivingLicences.delete(id);
+      toast({ title: "Deleted", description: "Licence record deleted." });
+      fetchData();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete licence.", variant: "destructive" });
+    }
   };
 
   const openEditDialog = (licence: LicenceRecord) => {
     setSelectedLicence(licence);
-    setFormData({ employee: licence.employee, licenceNo: licence.licenceNo, category: licence.category, issueDate: licence.issueDate, expiryDate: licence.expiryDate, status: licence.status });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setFormData({
+      employeeId: (licence as any).employeeId?.toString() || "", // Safely access employeeId
+      licenceNo: licence.licenceNo,
+      category: licence.category,
+      issueDate: licence.issueDate,
+      expiryDate: licence.expiryDate,
+      status: licence.status
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -116,7 +180,7 @@ export default function DrivingLicence() {
     <MainLayout title="Driving Licence Management" subtitle="Track employee driving licences and renewals">
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-4">
-          {stats.map((stat) => (
+          {statsData.map((stat) => (
             <Card key={stat.label}>
               <CardContent className="flex items-center gap-4 p-6">
                 <div className={`rounded-lg bg-muted p-3 ${stat.color}`}>
@@ -196,7 +260,19 @@ export default function DrivingLicence() {
             <DialogDescription>Add a new driving licence record.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Employee Name</Label><Input value={formData.employee} onChange={(e) => setFormData({ ...formData, employee: e.target.value })} /></div>
+            <div className="space-y-2">
+              <Label>Employee</Label>
+              <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })}>
+                <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2"><Label>Licence Number</Label><Input value={formData.licenceNo} onChange={(e) => setFormData({ ...formData, licenceNo: e.target.value })} /></div>
             <div className="space-y-2"><Label>Category</Label>
               <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
@@ -228,7 +304,19 @@ export default function DrivingLicence() {
             <DialogDescription>Update the driving licence record.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Employee Name</Label><Input value={formData.employee} onChange={(e) => setFormData({ ...formData, employee: e.target.value })} /></div>
+            <div className="space-y-2">
+              <Label>Employee</Label>
+              <Select value={formData.employeeId} onValueChange={(v) => setFormData({ ...formData, employeeId: v })}>
+                <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2"><Label>Licence Number</Label><Input value={formData.licenceNo} onChange={(e) => setFormData({ ...formData, licenceNo: e.target.value })} /></div>
             <div className="space-y-2"><Label>Category</Label>
               <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>

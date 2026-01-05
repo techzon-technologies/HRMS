@@ -28,6 +28,19 @@ const User = sequelize.define('User', {
     role: {
         type: DataTypes.ENUM('admin', 'manager', 'employee'),
         defaultValue: 'employee'
+    },
+    preferences: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        defaultValue: {
+            notifications: {
+                leaveRequests: true,
+                attendanceAlerts: true,
+                documentUploads: false,
+                payrollReminders: true
+            },
+            twoFA: false
+        }
     }
 }, {
     hooks: {
