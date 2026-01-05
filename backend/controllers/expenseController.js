@@ -27,9 +27,16 @@ export const getExpenseById = async (req, res) => {
 
 export const createExpense = async (req, res) => {
     try {
+        const { employee_id, expense_date, receipt_url, category, description, amount } = req.body;
+
         const expense = await Expense.create({
-            ...req.body,
-            employee_id: req.user.id // Assuming the user is the employee
+            employee_id: employee_id || req.user.id, // Allow admin to set employeeId, fallback to current user
+            expense_date,
+            receipt_url,
+            category,
+            description,
+            amount,
+            status: 'pending'
         });
         res.status(201).json(expense);
     } catch (error) {
@@ -39,7 +46,18 @@ export const createExpense = async (req, res) => {
 
 export const updateExpense = async (req, res) => {
     try {
-        const [updated] = await Expense.update(req.body, {
+        const { employee_id, expense_date, receipt_url, category, description, amount, status } = req.body;
+        
+        const updateData = {};
+        if (employee_id !== undefined) updateData.employee_id = employee_id;
+        if (expense_date !== undefined) updateData.expense_date = expense_date;
+        if (receipt_url !== undefined) updateData.receipt_url = receipt_url;
+        if (category !== undefined) updateData.category = category;
+        if (description !== undefined) updateData.description = description;
+        if (amount !== undefined) updateData.amount = amount;
+        if (status !== undefined) updateData.status = status;
+        
+        const [updated] = await Expense.update(updateData, {
             where: { id: req.params.id }
         });
         if (updated) {

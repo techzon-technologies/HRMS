@@ -96,46 +96,43 @@ export default function BenefitsGratuity() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [benefitsResponse, employeesResponse] = await Promise.all([
+        const [benefitsData, employeesData] = await Promise.all([
           apiService.benefits.getAll(),
           apiService.employees.getAll()
         ]);
-        
-        const benefitsData = benefitsResponse;
-        const employeesData = employeesResponse;
-        
+
         setBenefitsData(benefitsData);
         setEmployees(employeesData);
-        
+
         // Calculate stats
-        const totalLiability = benefitsData.reduce((sum, b) => sum + b.gratuityAmount, 0);
-        const avgYears = benefitsData.length > 0 ? benefitsData.reduce((sum, b) => sum + b.yearsOfService, 0) / benefitsData.length : 0;
-        
+        const totalLiability = benefitsData.reduce((sum: number, b: BenefitRecord) => sum + b.gratuityAmount, 0);
+        const avgYears = benefitsData.length > 0 ? benefitsData.reduce((sum: number, b: BenefitRecord) => sum + b.yearsOfService, 0) / benefitsData.length : 0;
+
         setStats([
           { label: "Total Liability", value: `AED ${(totalLiability / 1000000).toFixed(1)}M`, icon: DollarSign, color: "text-primary" },
           { label: "Eligible Employees", value: benefitsData.length.toString(), icon: Users, color: "text-emerald-600" },
           { label: "Avg. Years of Service", value: avgYears.toFixed(1), icon: TrendingUp, color: "text-amber-600" },
           { label: "Benefits Programs", value: "6", icon: Gift, color: "text-purple-600" },
         ]);
-        
+
         // Calculate gratuity by service
         const serviceRange = [
-          { name: "< 1 year", value: benefitsData.filter(b => b.yearsOfService < 1).length },
-          { name: "1-3 years", value: benefitsData.filter(b => b.yearsOfService >= 1 && b.yearsOfService < 3).length },
-          { name: "3-5 years", value: benefitsData.filter(b => b.yearsOfService >= 3 && b.yearsOfService < 5).length },
-          { name: "5+ years", value: benefitsData.filter(b => b.yearsOfService >= 5).length },
+          { name: "< 1 year", value: benefitsData.filter((b: BenefitRecord) => b.yearsOfService < 1).length },
+          { name: "1-3 years", value: benefitsData.filter((b: BenefitRecord) => b.yearsOfService >= 1 && b.yearsOfService < 3).length },
+          { name: "3-5 years", value: benefitsData.filter((b: BenefitRecord) => b.yearsOfService >= 3 && b.yearsOfService < 5).length },
+          { name: "5+ years", value: benefitsData.filter((b: BenefitRecord) => b.yearsOfService >= 5).length },
         ];
         setGratuityByService(serviceRange);
-        
+
         // Calculate gratuity amount range
         const amountRange = [
-          { name: "< AED 10K", value: benefitsData.filter(b => b.gratuityAmount < 10000).length },
-          { name: "AED 10K-50K", value: benefitsData.filter(b => b.gratuityAmount >= 10000 && b.gratuityAmount < 50000).length },
-          { name: "AED 50K-100K", value: benefitsData.filter(b => b.gratuityAmount >= 50000 && b.gratuityAmount < 100000).length },
-          { name: "> AED 100K", value: benefitsData.filter(b => b.gratuityAmount >= 100000).length },
+          { name: "< AED 10K", value: benefitsData.filter((b: BenefitRecord) => b.gratuityAmount < 10000).length },
+          { name: "AED 10K-50K", value: benefitsData.filter((b: BenefitRecord) => b.gratuityAmount >= 10000 && b.gratuityAmount < 50000).length },
+          { name: "AED 50K-100K", value: benefitsData.filter((b: BenefitRecord) => b.gratuityAmount >= 50000 && b.gratuityAmount < 100000).length },
+          { name: "> AED 100K", value: benefitsData.filter((b: BenefitRecord) => b.gratuityAmount >= 100000).length },
         ];
         setGratuityAmountRange(amountRange);
-        
+
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
@@ -183,28 +180,28 @@ export default function BenefitsGratuity() {
       };
 
       const newBenefit = await apiService.benefits.create(benefitData);
-      
+
       // Find the employee details for the newly created benefit
       const employee = employees.find(emp => emp.id === formData.employeeId);
       if (employee) {
         newBenefit.employee = employee;
       }
-      
+
       setBenefitsData([...benefitsData, newBenefit]);
       setIsAddDialogOpen(false);
       setFormData({ employeeId: 0, yearsOfService: 0, basicSalary: 0, gratuityAmount: 0, status: "Accruing" });
-      
+
       // Recalculate stats and charts
       const totalLiability = [...benefitsData, newBenefit].reduce((sum, b) => sum + b.gratuityAmount, 0);
       const avgYears = [...benefitsData, newBenefit].length > 0 ? [...benefitsData, newBenefit].reduce((sum, b) => sum + b.yearsOfService, 0) / [...benefitsData, newBenefit].length : 0;
-      
+
       setStats([
         { label: "Total Liability", value: `AED ${(totalLiability / 1000000).toFixed(1)}M`, icon: DollarSign, color: "text-primary" },
         { label: "Eligible Employees", value: [...benefitsData, newBenefit].length.toString(), icon: Users, color: "text-emerald-600" },
         { label: "Avg. Years of Service", value: avgYears.toFixed(1), icon: TrendingUp, color: "text-amber-600" },
         { label: "Benefits Programs", value: "6", icon: Gift, color: "text-purple-600" },
       ]);
-      
+
       // Recalculate gratuity by service
       const serviceRange = [
         { name: "< 1 year", value: [...benefitsData, newBenefit].filter(b => b.yearsOfService < 1).length },
@@ -213,7 +210,7 @@ export default function BenefitsGratuity() {
         { name: "5+ years", value: [...benefitsData, newBenefit].filter(b => b.yearsOfService >= 5).length },
       ];
       setGratuityByService(serviceRange);
-      
+
       // Recalculate gratuity amount range
       const amountRange = [
         { name: "< AED 10K", value: [...benefitsData, newBenefit].filter(b => b.gratuityAmount < 10000).length },
@@ -222,10 +219,10 @@ export default function BenefitsGratuity() {
         { name: "> AED 100K", value: [...benefitsData, newBenefit].filter(b => b.gratuityAmount >= 100000).length },
       ];
       setGratuityAmountRange(amountRange);
-      
-      toast({ 
-        title: "Benefit Added", 
-        description: `Benefit record for ${employee?.firstName} ${employee?.lastName} has been added.` 
+
+      toast({
+        title: "Benefit Added",
+        description: `Benefit record for ${employee?.firstName} ${employee?.lastName} has been added.`
       });
     } catch (error) {
       console.error('Error creating benefit:', error);
@@ -239,7 +236,7 @@ export default function BenefitsGratuity() {
 
   const handleEdit = async () => {
     if (!selectedBenefit) return;
-    
+
     try {
       const gratuity = calculateGratuity(formData.yearsOfService, formData.basicSalary);
       const benefitData = {
@@ -251,28 +248,28 @@ export default function BenefitsGratuity() {
       };
 
       const updatedBenefit = await apiService.benefits.update(selectedBenefit.id, benefitData);
-      
+
       // Find the employee details for the updated benefit
       const employee = employees.find(emp => emp.id === formData.employeeId);
       if (employee) {
         updatedBenefit.employee = employee;
       }
-      
+
       setBenefitsData(benefitsData.map((b) => b.id === selectedBenefit.id ? { ...b, ...updatedBenefit } : b));
       setIsEditDialogOpen(false);
-      
+
       // Recalculate stats and charts
       const updatedBenefits = benefitsData.map((b) => b.id === selectedBenefit.id ? { ...b, ...updatedBenefit } : b);
       const totalLiability = updatedBenefits.reduce((sum, b) => sum + b.gratuityAmount, 0);
       const avgYears = updatedBenefits.length > 0 ? updatedBenefits.reduce((sum, b) => sum + b.yearsOfService, 0) / updatedBenefits.length : 0;
-      
+
       setStats([
         { label: "Total Liability", value: `AED ${(totalLiability / 1000000).toFixed(1)}M`, icon: DollarSign, color: "text-primary" },
         { label: "Eligible Employees", value: updatedBenefits.length.toString(), icon: Users, color: "text-emerald-600" },
         { label: "Avg. Years of Service", value: avgYears.toFixed(1), icon: TrendingUp, color: "text-amber-600" },
         { label: "Benefits Programs", value: "6", icon: Gift, color: "text-purple-600" },
       ]);
-      
+
       // Recalculate gratuity by service
       const serviceRange = [
         { name: "< 1 year", value: updatedBenefits.filter(b => b.yearsOfService < 1).length },
@@ -281,7 +278,7 @@ export default function BenefitsGratuity() {
         { name: "5+ years", value: updatedBenefits.filter(b => b.yearsOfService >= 5).length },
       ];
       setGratuityByService(serviceRange);
-      
+
       // Recalculate gratuity amount range
       const amountRange = [
         { name: "< AED 10K", value: updatedBenefits.filter(b => b.gratuityAmount < 10000).length },
@@ -290,10 +287,10 @@ export default function BenefitsGratuity() {
         { name: "> AED 100K", value: updatedBenefits.filter(b => b.gratuityAmount >= 100000).length },
       ];
       setGratuityAmountRange(amountRange);
-      
-      toast({ 
-        title: "Benefit Updated", 
-        description: "Benefit record has been updated successfully." 
+
+      toast({
+        title: "Benefit Updated",
+        description: "Benefit record has been updated successfully."
       });
     } catch (error) {
       console.error('Error updating benefit:', error);
@@ -309,21 +306,21 @@ export default function BenefitsGratuity() {
     if (window.confirm('Are you sure you want to delete this benefit record?')) {
       try {
         await apiService.benefits.delete(id);
-        
+
         const updatedBenefits = benefitsData.filter((b) => b.id !== id);
         setBenefitsData(updatedBenefits);
-        
+
         // Recalculate stats and charts
         const totalLiability = updatedBenefits.reduce((sum, b) => sum + b.gratuityAmount, 0);
         const avgYears = updatedBenefits.length > 0 ? updatedBenefits.reduce((sum, b) => sum + b.yearsOfService, 0) / updatedBenefits.length : 0;
-        
+
         setStats([
           { label: "Total Liability", value: `AED ${(totalLiability / 1000000).toFixed(1)}M`, icon: DollarSign, color: "text-primary" },
           { label: "Eligible Employees", value: updatedBenefits.length.toString(), icon: Users, color: "text-emerald-600" },
           { label: "Avg. Years of Service", value: avgYears.toFixed(1), icon: TrendingUp, color: "text-amber-600" },
           { label: "Benefits Programs", value: "6", icon: Gift, color: "text-purple-600" },
         ]);
-        
+
         // Recalculate gratuity by service
         const serviceRange = [
           { name: "< 1 year", value: updatedBenefits.filter(b => b.yearsOfService < 1).length },
@@ -332,7 +329,7 @@ export default function BenefitsGratuity() {
           { name: "5+ years", value: updatedBenefits.filter(b => b.yearsOfService >= 5).length },
         ];
         setGratuityByService(serviceRange);
-        
+
         // Recalculate gratuity amount range
         const amountRange = [
           { name: "< AED 10K", value: updatedBenefits.filter(b => b.gratuityAmount < 10000).length },
@@ -341,10 +338,10 @@ export default function BenefitsGratuity() {
           { name: "> AED 100K", value: updatedBenefits.filter(b => b.gratuityAmount >= 100000).length },
         ];
         setGratuityAmountRange(amountRange);
-        
-        toast({ 
-          title: "Benefit Deleted", 
-          description: "Benefit record has been deleted." 
+
+        toast({
+          title: "Benefit Deleted",
+          description: "Benefit record has been deleted."
         });
       } catch (error) {
         console.error('Error deleting benefit:', error);
@@ -359,12 +356,12 @@ export default function BenefitsGratuity() {
 
   const openEditDialog = (benefit: BenefitRecord) => {
     setSelectedBenefit(benefit);
-    setFormData({ 
-      employeeId: benefit.employeeId, 
-      yearsOfService: benefit.yearsOfService, 
-      basicSalary: benefit.basicSalary, 
-      gratuityAmount: benefit.gratuityAmount, 
-      status: benefit.status 
+    setFormData({
+      employeeId: benefit.employeeId,
+      yearsOfService: benefit.yearsOfService,
+      basicSalary: benefit.basicSalary,
+      gratuityAmount: benefit.gratuityAmount,
+      status: benefit.status
     });
     setIsEditDialogOpen(true);
   };
@@ -423,7 +420,7 @@ export default function BenefitsGratuity() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Gratuity Amount Distribution</CardTitle>

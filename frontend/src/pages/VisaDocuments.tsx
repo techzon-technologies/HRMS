@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,59 +48,106 @@ interface VisaRecord {
   status: "Active" | "Expiring Soon" | "Expired";
 }
 
-const initialVisaData: VisaRecord[] = [
-  { id: 1, employee: "Ahmed Hassan", type: "Work Visa", number: "V-2024-001", issueDate: "2024-01-15", expiryDate: "2026-01-14", status: "Active" },
-  { id: 2, employee: "Sara Ali", type: "Residence Visa", number: "V-2024-002", issueDate: "2023-06-20", expiryDate: "2024-06-19", status: "Expiring Soon" },
-  { id: 3, employee: "Mohammed Khan", type: "Work Visa", number: "V-2024-003", issueDate: "2024-03-10", expiryDate: "2026-03-09", status: "Active" },
-  { id: 4, employee: "Fatima Yusuf", type: "Work Visa", number: "V-2024-004", issueDate: "2022-11-01", expiryDate: "2024-10-31", status: "Expired" },
-  { id: 5, employee: "Omar Abdullah", type: "Residence Visa", number: "V-2024-005", issueDate: "2024-02-28", expiryDate: "2026-02-27", status: "Active" },
-];
-
+// Initial data removed
 const stats = [
-  { label: "Total Documents", value: "156", icon: FileText, color: "text-primary" },
-  { label: "Active Visas", value: "142", icon: CheckCircle, color: "text-emerald-600" },
-  { label: "Expiring Soon", value: "8", icon: Clock, color: "text-amber-600" },
-  { label: "Expired", value: "6", icon: AlertTriangle, color: "text-destructive" },
+  { label: "Total Documents", value: "0", icon: FileText, color: "text-primary" },
+  { label: "Active Visas", value: "0", icon: CheckCircle, color: "text-emerald-600" },
+  { label: "Expiring Soon", value: "0", icon: Clock, color: "text-amber-600" },
+  { label: "Expired", value: "0", icon: AlertTriangle, color: "text-destructive" },
 ];
 
 export default function VisaDocuments() {
   const { toast } = useToast();
-  const [visaData, setVisaData] = useState<VisaRecord[]>(initialVisaData);
+  const [visaData, setVisaData] = useState<VisaRecord[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedVisa, setSelectedVisa] = useState<VisaRecord | null>(null);
-  const [newVisa, setNewVisa] = useState({ employee: "", type: "", issueDate: "", expiryDate: "" });
+  const [newVisa, setNewVisa] = useState({ employeeId: "", type: "", visaNumber: "", issueDate: "", expiryDate: "" });
+  const [statsData, setStatsData] = useState(stats);
+
+  const fetchData = async () => {
+    try {
+      const [visas, employeesData] = await Promise.all([
+        apiService.visas.getAll(),
+        apiService.employees.getAll()
+      ]);
+
+      const formattedVisas = visas.map((v: any) => ({
+        id: v.id,
+        employee: v.employee ? `${v.employee.firstName} ${v.employee.lastName}` : "Unknown",
+        type: v.type,
+        number: v.visaNumber,
+        issueDate: v.issueDate,
+        expiryDate: v.expiryDate,
+        status: v.status
+      }));
+
+      setVisaData(formattedVisas);
+      setEmployees(employeesData);
+
+      // Calculate Stats
+      const total = formattedVisas.length;
+      const active = formattedVisas.filter((v: any) => v.status === 'Active').length;
+      const expiring = formattedVisas.filter((v: any) => v.status === 'Expiring Soon').length;
+      const expired = formattedVisas.filter((v: any) => v.status === 'Expired').length;
+
+      setStatsData([
+        { label: "Total Documents", value: total.toString(), icon: FileText, color: "text-primary" },
+        { label: "Active Visas", value: active.toString(), icon: CheckCircle, color: "text-emerald-600" },
+        { label: "Expiring Soon", value: expiring.toString(), icon: Clock, color: "text-amber-600" },
+        { label: "Expired", value: expired.toString(), icon: AlertTriangle, color: "text-destructive" },
+      ]);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to fetch data.", variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const filteredData = visaData.filter((visa) =>
     visa.employee.toLowerCase().includes(searchQuery.toLowerCase()) ||
     visa.number.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddVisa = () => {
-    if (!newVisa.employee || !newVisa.type || !newVisa.expiryDate) {
-      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
-      return;
+  const handleAddVisa = async () => {
+    try {
+      if (!newVisa.employeeId || !newVisa.type || !newVisa.expiryDate || !newVisa.visaNumber) {
+        toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
+        return;
+      }
+
+      await apiService.visas.create({
+        employeeId: parseInt(newVisa.employeeId),
+        type: newVisa.type,
+        visaNumber: newVisa.visaNumber,
+        issueDate: newVisa.issueDate,
+        expiryDate: newVisa.expiryDate,
+        status: "Active" // You might want to calculate this server-side or client-side based on date
+      });
+
+      toast({ title: "Success", description: "Visa record added successfully." });
+      setIsAddDialogOpen(false);
+      setNewVisa({ employeeId: "", type: "", visaNumber: "", issueDate: "", expiryDate: "" });
+      fetchData();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to create visa record.", variant: "destructive" });
     }
-    const visa: VisaRecord = {
-      id: visaData.length + 1,
-      employee: newVisa.employee,
-      type: newVisa.type,
-      number: `V-2024-${String(visaData.length + 1).padStart(3, "0")}`,
-      issueDate: newVisa.issueDate || new Date().toISOString().split("T")[0],
-      expiryDate: newVisa.expiryDate,
-      status: "Active",
-    };
-    setVisaData([visa, ...visaData]);
-    setNewVisa({ employee: "", type: "", issueDate: "", expiryDate: "" });
-    setIsAddDialogOpen(false);
-    toast({ title: "Document Added", description: `Visa document for ${visa.employee} has been added.` });
   };
 
   const handleView = (visa: VisaRecord) => { setSelectedVisa(visa); setIsViewDialogOpen(true); };
-  const handleDelete = (visa: VisaRecord) => {
-    setVisaData(visaData.filter((v) => v.id !== visa.id));
-    toast({ title: "Document Deleted", description: `Visa ${visa.number} has been deleted.` });
+
+  const handleDelete = async (visa: VisaRecord) => {
+    try {
+      await apiService.visas.delete(visa.id);
+      toast({ title: "Deleted", description: "Visa record deleted successfully." });
+      fetchData();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete record.", variant: "destructive" });
+    }
   };
 
   return (
@@ -109,7 +157,7 @@ export default function VisaDocuments() {
           <Button onClick={() => setIsAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Document</Button>
         </div>
         <div className="grid gap-4 md:grid-cols-4">
-          {stats.map((stat) => (
+          {statsData.map((stat) => (
             <Card key={stat.label}>
               <CardContent className="flex items-center gap-4 p-6">
                 <div className={`rounded-lg bg-muted p-3 ${stat.color}`}><stat.icon className="h-6 w-6" /></div>
@@ -165,13 +213,26 @@ export default function VisaDocuments() {
         <DialogContent>
           <DialogHeader><DialogTitle>Add New Document</DialogTitle><DialogDescription>Add a visa or document record.</DialogDescription></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>Employee Name</Label><Input value={newVisa.employee} onChange={(e) => setNewVisa({ ...newVisa, employee: e.target.value })} placeholder="Enter employee name" /></div>
+            <div className="space-y-2">
+              <Label>Employee</Label>
+              <Select value={newVisa.employeeId} onValueChange={(v) => setNewVisa({ ...newVisa, employeeId: v })}>
+                <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2"><Label>Visa Type</Label>
               <Select value={newVisa.type} onValueChange={(v) => setNewVisa({ ...newVisa, type: v })}>
                 <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent><SelectItem value="Work Visa">Work Visa</SelectItem><SelectItem value="Residence Visa">Residence Visa</SelectItem><SelectItem value="Visit Visa">Visit Visa</SelectItem></SelectContent>
               </Select>
             </div>
+            <div className="space-y-2"><Label>Visa Number</Label><Input value={newVisa.visaNumber} onChange={(e) => setNewVisa({ ...newVisa, visaNumber: e.target.value })} placeholder="Enter visa number" /></div>
             <div className="space-y-2"><Label>Issue Date</Label><Input type="date" value={newVisa.issueDate} onChange={(e) => setNewVisa({ ...newVisa, issueDate: e.target.value })} /></div>
             <div className="space-y-2"><Label>Expiry Date</Label><Input type="date" value={newVisa.expiryDate} onChange={(e) => setNewVisa({ ...newVisa, expiryDate: e.target.value })} /></div>
           </div>

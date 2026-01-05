@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,6 @@ import {
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
 import { Download, FileText, Users, TrendingUp, Calendar } from "lucide-react";
-import { apiService } from "@/lib/api";
 
 interface DepartmentData {
   name: string;
@@ -53,18 +53,51 @@ const Reports = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Connect to real API endpoints
-    // For now initializing with empty data to avoid showing dummy data
-    
-    setDepartmentData([]);
-    setAttendanceTrend([]);
-    setLeaveDistribution([]);
-    setPayrollTrend([]);
-    setExpensesByCategory([]);
-    setComplianceStatus([]);
-    
-    setIsLoading(false);
+    fetchReportData();
   }, []);
+
+  const fetchReportData = async () => {
+    try {
+      setIsLoading(true);
+      const [employees, payrolls, attendance] = await Promise.all([
+        apiService.employees.getAll(),
+        apiService.payrolls.getAll(),
+        apiService.attendance.getAll(),
+      ]);
+
+      // Process Employees by Department
+      const deptMap = new Map<string, number>();
+      employees.forEach((emp: any) => {
+        const dept = emp.department || "Unknown";
+        deptMap.set(dept, (deptMap.get(dept) || 0) + 1);
+      });
+      const deptData = Array.from(deptMap.entries()).map(([name, employees]) => ({ name, employees }));
+      setDepartmentData(deptData);
+
+      // Process Payroll Trend (Sum by Month)
+      const payrollMap = new Map<string, number>();
+      payrolls.forEach((p: any) => {
+        const date = new Date();
+        if (p.month) date.setMonth(p.month - 1);
+        const monthName = date.toLocaleString('default', { month: 'short' });
+        const amount = parseFloat(p.net_salary || p.netSalary || p.salary || 0);
+        payrollMap.set(monthName, (payrollMap.get(monthName) || 0) + amount);
+      });
+      const payrollData = Array.from(payrollMap.entries()).map(([month, amount]) => ({ month, amount: amount / 1000 })); // in 1000s
+      setPayrollTrend(payrollData);
+
+      // Process Attendance Rate
+      // Simple approximation: Count 'present' / total records per month?
+      // Or just global stats for now as 'trend' requires historical data which might be sparse
+      // setAttendanceTrend(...); 
+
+      // Remove loading state
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Failed to fetch report data", error);
+      setIsLoading(false);
+    }
+  };
 
   const COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
 
@@ -97,7 +130,7 @@ const Reports = () => {
           </Card>
         ))}
       </div>
-      
+
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Employees by Department</CardTitle></CardHeader>
@@ -135,7 +168,7 @@ const Reports = () => {
           </CardContent>
         </Card>
       </div>
-      
+
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Payroll Trend (AED 1000s)</CardTitle></CardHeader>
@@ -145,9 +178,9 @@ const Reports = () => {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value) => [`AED ${Number(value).toLocaleString()}K`, 'Amount']}
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }} 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                 />
                 <Line type="monotone" dataKey="amount" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2 }} />
               </LineChart>
@@ -179,7 +212,7 @@ const Reports = () => {
           </CardContent>
         </Card>
       </div>
-      
+
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Attendance Rate Trend</CardTitle></CardHeader>

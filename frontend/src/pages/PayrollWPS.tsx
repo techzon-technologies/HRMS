@@ -84,14 +84,11 @@ export default function PayrollWPS() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wpsResponse, employeesResponse] = await Promise.all([
+        const [wpsData, employeesData] = await Promise.all([
           apiService.payrolls.getAll(),
           apiService.employees.getAll()
         ]);
-        
-        const wpsData = wpsResponse;
-        const employeesData = employeesResponse;
-        
+
         setWpsData(wpsData);
         setEmployees(employeesData);
       } catch (error) {
@@ -147,16 +144,16 @@ export default function PayrollWPS() {
   const handleProcessPayroll = async () => {
     try {
       const pendingRecords = wpsData.filter(r => r.status === "Pending");
-      const updatePromises = pendingRecords.map(record => 
+      const updatePromises = pendingRecords.map(record =>
         apiService.payrolls.update(record.id, { ...record, status: "Processed" })
       );
-      
+
       await Promise.all(updatePromises);
-      
-      const updatedWpsData = wpsData.map((r) => 
+
+      const updatedWpsData = wpsData.map((r) =>
         r.status === "Pending" ? { ...r, status: "Processed" } : r
       );
-      
+
       setWpsData(updatedWpsData);
       toast({ title: "Payroll Processed", description: "All pending payroll entries have been processed." });
     } catch (error) {
@@ -172,11 +169,11 @@ export default function PayrollWPS() {
   const handleRetry = async (id: number) => {
     try {
       const updatedRecord = await apiService.payrolls.update(id, { status: "Processed" });
-      
-      const updatedWpsData = wpsData.map((r) => 
+
+      const updatedWpsData = wpsData.map((r) =>
         r.id === id ? { ...r, status: "Processed" } : r
       );
-      
+
       setWpsData(updatedWpsData);
       toast({ title: "Payment Retried", description: "Payment has been reprocessed successfully." });
     } catch (error) {
@@ -191,7 +188,7 @@ export default function PayrollWPS() {
 
   const handleEdit = async () => {
     if (!selectedRecord) return;
-    
+
     try {
       const netPay = formData.salary + formData.allowances - formData.deductions;
       const payrollData = {
@@ -204,13 +201,13 @@ export default function PayrollWPS() {
       };
 
       const updatedRecord = await apiService.payrolls.update(selectedRecord.id, payrollData);
-      
+
       // Find the employee details for the updated record
       const employee = employees.find(emp => emp.id === formData.employeeId);
       if (employee) {
         updatedRecord.employee = employee;
       }
-      
+
       setWpsData(wpsData.map((r) => r.id === selectedRecord.id ? { ...r, ...updatedRecord } : r));
       setIsEditDialogOpen(false);
       toast({ title: "Record Updated", description: "WPS record has been updated successfully." });
@@ -226,12 +223,12 @@ export default function PayrollWPS() {
 
   const openEditDialog = (record: WPSRecord) => {
     setSelectedRecord(record);
-    setFormData({ 
-      employeeId: record.employeeId, 
-      salary: record.salary, 
-      allowances: record.allowances, 
-      deductions: record.deductions, 
-      status: record.status 
+    setFormData({
+      employeeId: record.employeeId,
+      salary: record.salary,
+      allowances: record.allowances,
+      deductions: record.deductions,
+      status: record.status
     });
     setIsEditDialogOpen(true);
   };
@@ -290,7 +287,7 @@ export default function PayrollWPS() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Payroll by Status</CardTitle>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,90 +43,18 @@ interface AttendanceRecord {
   };
   checkIn: string;
   checkOut: string;
-  status: "present" | "late" | "absent" | "on-leave";
+  status: "present" | "late" | "absent" | "on_leave";
   workHours: string;
 }
 
-const initialAttendanceRecords: AttendanceRecord[] = [
-  {
-    id: 1,
-    employee: {
-      name: "Sarah Johnson",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=40&h=40&fit=crop&crop=face",
-      initials: "SJ",
-      department: "Marketing",
-    },
-    checkIn: "08:45 AM",
-    checkOut: "05:30 PM",
-    status: "present",
-    workHours: "8h 45m",
-  },
-  {
-    id: 2,
-    employee: {
-      name: "Michael Chen",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face",
-      initials: "MC",
-      department: "Engineering",
-    },
-    checkIn: "09:15 AM",
-    checkOut: "06:00 PM",
-    status: "late",
-    workHours: "8h 45m",
-  },
-  {
-    id: 3,
-    employee: {
-      name: "Emily Davis",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face",
-      initials: "ED",
-      department: "Design",
-    },
-    checkIn: "08:30 AM",
-    checkOut: "05:15 PM",
-    status: "present",
-    workHours: "8h 45m",
-  },
-  {
-    id: 4,
-    employee: {
-      name: "James Wilson",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face",
-      initials: "JW",
-      department: "Product",
-    },
-    checkIn: "-",
-    checkOut: "-",
-    status: "on-leave",
-    workHours: "-",
-  },
-  {
-    id: 5,
-    employee: {
-      name: "Lisa Anderson",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&crop=face",
-      initials: "LA",
-      department: "Human Resources",
-    },
-    checkIn: "08:55 AM",
-    checkOut: "05:45 PM",
-    status: "present",
-    workHours: "8h 50m",
-  },
-  {
-    id: 6,
-    employee: {
-      name: "David Kim",
-      avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=40&h=40&fit=crop&crop=face",
-      initials: "DK",
-      department: "Finance",
-    },
-    checkIn: "-",
-    checkOut: "-",
-    status: "absent",
-    workHours: "-",
-  },
-];
+
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  department: string;
+  initials?: string;
+}
 
 const statusBadge = (status: string) => {
   switch (status) {
@@ -135,7 +64,7 @@ const statusBadge = (status: string) => {
       return <Badge className="bg-chart-4 text-primary-foreground hover:bg-chart-4/90">Late</Badge>;
     case "absent":
       return <Badge variant="destructive">Absent</Badge>;
-    case "on-leave":
+    case "on_leave":
       return <Badge variant="secondary">On Leave</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
@@ -144,18 +73,56 @@ const statusBadge = (status: string) => {
 
 const Attendance = () => {
   const { toast } = useToast();
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [attendanceData, employeesData] = await Promise.all([
+        apiService.attendance.getAll(),
+        apiService.employees.getAll()
+      ]);
+
+      const mappedData = attendanceData.map((record: any) => ({
+        id: record.id,
+        employee: {
+          name: record.employee ? `${record.employee.firstName} ${record.employee.lastName}` : "Unknown",
+          avatar: "",
+          initials: record.employee ? `${record.employee.firstName?.[0]}${record.employee.lastName?.[0]}`.toUpperCase() : "NA",
+          department: record.employee?.department || "Unknown",
+        },
+        checkIn: record.checkIn,
+        checkOut: record.checkOut,
+        status: record.status,
+        workHours: record.workHours,
+      }));
+      setAttendanceRecords(mappedData);
+      setEmployees(employeesData as unknown as Employee[]);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load records.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
   const [formData, setFormData] = useState({
-    employeeName: "",
-    department: "",
+    employeeId: "",
+    date: new Date().toISOString().split('T')[0],
     checkIn: "",
     checkOut: "",
-    status: "present" as "present" | "late" | "absent" | "on-leave",
+    status: "present" as "present" | "late" | "absent" | "on_leave",
   });
 
   const filteredRecords = attendanceRecords.filter((record) =>
@@ -167,7 +134,7 @@ const Attendance = () => {
     { label: "Present", value: filteredRecords.filter(r => r.status === "present").length, icon: UserCheck, color: "text-primary" },
     { label: "Absent", value: filteredRecords.filter(r => r.status === "absent").length, icon: UserX, color: "text-destructive" },
     { label: "Late", value: filteredRecords.filter(r => r.status === "late").length, icon: AlertTriangle, color: "text-chart-4" },
-    { label: "On Leave", value: filteredRecords.filter(r => r.status === "on-leave").length, icon: Clock, color: "text-muted-foreground" },
+    { label: "On Leave", value: filteredRecords.filter(r => r.status === "on_leave").length, icon: Clock, color: "text-muted-foreground" },
   ];
 
   const handleExport = () => {
@@ -177,70 +144,83 @@ const Attendance = () => {
     });
   };
 
-  const handleAddAttendance = () => {
-    const initials = formData.employeeName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
+  const handleAddAttendance = async () => {
+    try {
+      if (!formData.employeeId || !formData.date) {
+        toast({
+          title: "Validation Error",
+          description: "Please select an employee and date.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    const newRecord: AttendanceRecord = {
-      id: attendanceRecords.length + 1,
-      employee: {
-        name: formData.employeeName,
-        avatar: "",
-        initials,
-        department: formData.department,
-      },
-      checkIn: formData.checkIn || "-",
-      checkOut: formData.checkOut || "-",
-      status: formData.status,
-      workHours: formData.checkIn && formData.checkOut ? "8h 0m" : "-",
-    };
+      await apiService.attendance.create(formData);
 
-    setAttendanceRecords([...attendanceRecords, newRecord]);
-    setIsAddDialogOpen(false);
-    setFormData({ employeeName: "", department: "", checkIn: "", checkOut: "", status: "present" });
-    toast({
-      title: "Attendance Added",
-      description: `Attendance record for ${formData.employeeName} has been added.`,
-    });
+      toast({
+        title: "Attendance Added",
+        description: "Attendance record has been created successfully.",
+      });
+      setIsAddDialogOpen(false);
+      fetchData();
+      setFormData({ employeeId: "", date: new Date().toISOString().split('T')[0], checkIn: "", checkOut: "", status: "present" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create attendance record.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleEditAttendance = () => {
+  const handleEditAttendance = async () => {
     if (!selectedRecord) return;
 
-    setAttendanceRecords(attendanceRecords.map((record) =>
-      record.id === selectedRecord.id
-        ? {
-            ...record,
-            checkIn: formData.checkIn || record.checkIn,
-            checkOut: formData.checkOut || record.checkOut,
-            status: formData.status,
-          }
-        : record
-    ));
-    setIsEditDialogOpen(false);
-    setSelectedRecord(null);
-    toast({
-      title: "Attendance Updated",
-      description: "Attendance record has been updated successfully.",
-    });
+    try {
+      await apiService.attendance.update(selectedRecord.id, {
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        status: formData.status,
+      });
+
+      toast({
+        title: "Attendance Updated",
+        description: "Attendance record has been updated successfully.",
+      });
+      setIsEditDialogOpen(false);
+      setSelectedRecord(null);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update attendance record.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteAttendance = (id: number) => {
-    setAttendanceRecords(attendanceRecords.filter((record) => record.id !== id));
-    toast({
-      title: "Attendance Deleted",
-      description: "Attendance record has been deleted.",
-    });
+  const handleDeleteAttendance = async (id: number) => {
+    try {
+      await apiService.attendance.delete(id);
+      toast({
+        title: "Attendance Deleted",
+        description: "Attendance record has been deleted.",
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete attendance record.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openEditDialog = (record: AttendanceRecord) => {
     setSelectedRecord(record);
     setFormData({
-      employeeName: record.employee.name,
-      department: record.employee.department,
+      employeeId: "", // Not editable in current flow but kept for type consistency
+      date: "",
       checkIn: record.checkIn,
       checkOut: record.checkOut,
       status: record.status,
@@ -355,19 +335,30 @@ const Attendance = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="employeeName">Employee Name</Label>
-              <Input
-                id="employeeName"
-                value={formData.employeeName}
-                onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
-              />
+              <Label htmlFor="employee">Employee</Label>
+              <Select
+                value={formData.employeeId}
+                onValueChange={(value) => setFormData({ ...formData, employeeId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id.toString()}>
+                      {emp.firstName} {emp.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="department">Department</Label>
+              <Label htmlFor="date">Date</Label>
               <Input
-                id="department"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -392,7 +383,7 @@ const Attendance = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value: "present" | "late" | "absent" | "on-leave") => setFormData({ ...formData, status: value })}>
+              <Select value={formData.status} onValueChange={(value: "present" | "late" | "absent" | "on_leave") => setFormData({ ...formData, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -400,7 +391,7 @@ const Attendance = () => {
                   <SelectItem value="present">Present</SelectItem>
                   <SelectItem value="late">Late</SelectItem>
                   <SelectItem value="absent">Absent</SelectItem>
-                  <SelectItem value="on-leave">On Leave</SelectItem>
+                  <SelectItem value="on_leave">On Leave</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -442,7 +433,7 @@ const Attendance = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="editStatus">Status</Label>
-              <Select value={formData.status} onValueChange={(value: "present" | "late" | "absent" | "on-leave") => setFormData({ ...formData, status: value })}>
+              <Select value={formData.status} onValueChange={(value: "present" | "late" | "absent" | "on_leave") => setFormData({ ...formData, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -450,7 +441,7 @@ const Attendance = () => {
                   <SelectItem value="present">Present</SelectItem>
                   <SelectItem value="late">Late</SelectItem>
                   <SelectItem value="absent">Absent</SelectItem>
-                  <SelectItem value="on-leave">On Leave</SelectItem>
+                  <SelectItem value="on_leave">On Leave</SelectItem>
                 </SelectContent>
               </Select>
             </div>

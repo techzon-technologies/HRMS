@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
 const Settings = () => {
   const { toast } = useToast();
@@ -39,16 +40,76 @@ const Settings = () => {
     confirm: "",
   });
   const [twoFA, setTwoFA] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleSaveCompanyInfo = () => {
-    toast({ title: "Settings Saved", description: "Company information has been updated successfully." });
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const [companySettings, userProfile] = await Promise.all([
+          apiService.settings.getCompany() as Promise<any>,
+          apiService.auth.me() as Promise<any>
+        ]);
+
+        if (companySettings) {
+          setCompanyInfo({
+            company: companySettings.companyName || "",
+            email: companySettings.companyEmail || "",
+            phone: companySettings.companyPhone || "",
+            timezone: companySettings.timezone || "est"
+          });
+          setWorkSchedule({
+            start: companySettings.workStart || "09:00",
+            end: companySettings.workEnd || "17:00"
+          });
+        }
+
+        if (userProfile && userProfile.preferences) {
+          if (userProfile.preferences.notifications) {
+            setNotifications(userProfile.preferences.notifications);
+          }
+          if (userProfile.preferences.twoFA !== undefined) {
+            setTwoFA(userProfile.preferences.twoFA);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch settings:", error);
+        toast({ title: "Error", description: "Failed to load settings.", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [toast]);
+
+  const handleSaveCompanyInfo = async () => {
+    try {
+      await apiService.settings.updateCompany({
+        companyName: companyInfo.company,
+        companyEmail: companyInfo.email,
+        companyPhone: companyInfo.phone,
+        timezone: companyInfo.timezone
+      });
+      toast({ title: "Settings Saved", description: "Company information has been updated successfully." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save company info.", variant: "destructive" });
+    }
   };
 
-  const handleSaveWorkSchedule = () => {
-    toast({ title: "Settings Saved", description: "Work schedule has been updated successfully." });
+  const handleSaveWorkSchedule = async () => {
+    try {
+      await apiService.settings.updateCompany({
+        workStart: workSchedule.start,
+        workEnd: workSchedule.end
+      });
+      toast({ title: "Settings Saved", description: "Work schedule has been updated successfully." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save work schedule.", variant: "destructive" });
+    }
   };
 
   const handleUpdatePassword = () => {
+    // Password update API not yet implemented in settingController, typically handled by separate auth endpoint
     if (passwords.new !== passwords.confirm) {
       toast({ title: "Error", description: "New passwords do not match.", variant: "destructive" });
       return;
@@ -57,14 +118,47 @@ const Settings = () => {
       toast({ title: "Error", description: "Password must be at least 8 characters.", variant: "destructive" });
       return;
     }
+    // Placeholder for future implementation
     setPasswords({ current: "", new: "", confirm: "" });
     toast({ title: "Password Updated", description: "Your password has been changed successfully." });
   };
 
-  const handleToggle2FA = () => {
-    setTwoFA(!twoFA);
-    toast({ title: twoFA ? "2FA Disabled" : "2FA Enabled", description: twoFA ? "Two-factor authentication has been disabled." : "Two-factor authentication has been enabled." });
+  const handleToggle2FA = async (checked: boolean) => {
+    try {
+      // Optimistic update
+      setTwoFA(checked);
+      await apiService.settings.updateUser({
+        twoFA: checked,
+        preferences: { notifications, twoFA: checked } // sending full preferences object just in case
+      });
+      toast({ title: checked ? "2FA Disabled" : "2FA Enabled", description: checked ? "Two-factor authentication has been disabled." : "Two-factor authentication has been enabled." });
+    } catch (error) {
+      setTwoFA(!checked); // Revert
+      toast({ title: "Error", description: "Failed to update 2FA settings.", variant: "destructive" });
+    }
   };
+
+  const updateNotification = async (key: keyof typeof notifications, value: boolean) => {
+    const newNotifications = { ...notifications, [key]: value };
+    setNotifications(newNotifications);
+    try {
+      await apiService.settings.updateUser({
+        preferences: { notifications: newNotifications, twoFA }
+      });
+      toast({ title: value ? "Enabled" : "Disabled", description: `Notification setting updated.` });
+    } catch (error) {
+      setNotifications(notifications); // Revert
+      toast({ title: "Error", description: "Failed to update notification settings.", variant: "destructive" });
+    }
+  };
+
+  if (loading) {
+    return (
+      <MainLayout title="Settings" subtitle="Manage your preferences">
+        <div className="flex justify-center p-8">Loading settings...</div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout title="Settings" subtitle="Manage your preferences">
@@ -147,28 +241,28 @@ const Settings = () => {
                   <p className="font-medium text-foreground">Leave Requests</p>
                   <p className="text-sm text-muted-foreground">Get notified when employees request leave</p>
                 </div>
-                <Switch checked={notifications.leaveRequests} onCheckedChange={(checked) => { setNotifications({ ...notifications, leaveRequests: checked }); toast({ title: checked ? "Enabled" : "Disabled", description: `Leave request notifications ${checked ? "enabled" : "disabled"}.` }); }} />
+                <Switch checked={notifications.leaveRequests} onCheckedChange={(checked) => updateNotification('leaveRequests', checked)} />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-foreground">Attendance Alerts</p>
                   <p className="text-sm text-muted-foreground">Receive alerts for late arrivals and absences</p>
                 </div>
-                <Switch checked={notifications.attendanceAlerts} onCheckedChange={(checked) => { setNotifications({ ...notifications, attendanceAlerts: checked }); toast({ title: checked ? "Enabled" : "Disabled", description: `Attendance alerts ${checked ? "enabled" : "disabled"}.` }); }} />
+                <Switch checked={notifications.attendanceAlerts} onCheckedChange={(checked) => updateNotification('attendanceAlerts', checked)} />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-foreground">Document Uploads</p>
                   <p className="text-sm text-muted-foreground">Notify when new documents are uploaded</p>
                 </div>
-                <Switch checked={notifications.documentUploads} onCheckedChange={(checked) => { setNotifications({ ...notifications, documentUploads: checked }); toast({ title: checked ? "Enabled" : "Disabled", description: `Document upload notifications ${checked ? "enabled" : "disabled"}.` }); }} />
+                <Switch checked={notifications.documentUploads} onCheckedChange={(checked) => updateNotification('documentUploads', checked)} />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-foreground">Payroll Reminders</p>
                   <p className="text-sm text-muted-foreground">Get reminders before payroll processing</p>
                 </div>
-                <Switch checked={notifications.payrollReminders} onCheckedChange={(checked) => { setNotifications({ ...notifications, payrollReminders: checked }); toast({ title: checked ? "Enabled" : "Disabled", description: `Payroll reminders ${checked ? "enabled" : "disabled"}.` }); }} />
+                <Switch checked={notifications.payrollReminders} onCheckedChange={(checked) => updateNotification('payrollReminders', checked)} />
               </div>
             </CardContent>
           </Card>

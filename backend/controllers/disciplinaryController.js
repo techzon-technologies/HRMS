@@ -7,6 +7,10 @@ export const getAllDisciplinaryActions = async (req, res) => {
         model: Employee,
         as: 'employee',
         attributes: ['id', 'firstName', 'lastName', 'employeeId']
+      }, {
+        model: Employee,
+        as: 'issuer',
+        attributes: ['id', 'firstName', 'lastName', 'employeeId']
       }]
     });
     res.json(disciplinaryActions);
@@ -23,6 +27,10 @@ export const getDisciplinaryActionById = async (req, res) => {
       include: [{
         model: Employee,
         as: 'employee',
+        attributes: ['id', 'firstName', 'lastName', 'employeeId']
+      }, {
+        model: Employee,
+        as: 'issuer',
         attributes: ['id', 'firstName', 'lastName', 'employeeId']
       }]
     });
@@ -53,7 +61,7 @@ export const updateDisciplinaryAction = async (req, res) => {
   try {
     const { id } = req.params;
     const disciplinaryData = req.body;
-    
+
     const [updatedRowsCount] = await DisciplinaryAction.update(disciplinaryData, {
       where: { id: id }
     });
@@ -73,7 +81,7 @@ export const updateDisciplinaryAction = async (req, res) => {
 export const deleteDisciplinaryAction = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const deletedRowsCount = await DisciplinaryAction.destroy({
       where: { id: id }
     });
@@ -93,7 +101,7 @@ export const updateDisciplinaryStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    
+
     const updatedDisciplinaryAction = await DisciplinaryAction.update(
       { status: status },
       { where: { id: id } }

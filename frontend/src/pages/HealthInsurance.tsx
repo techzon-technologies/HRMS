@@ -93,13 +93,13 @@ export default function HealthInsurance() {
           apiService.healthInsurance.getAll(),
           apiService.employees.getAll()
         ]);
-        
-        const insuranceData: InsuranceRecord[] = Array.isArray(insuranceResponse) ? insuranceResponse : [];
-        const employeesData: Employee[] = Array.isArray(employeesResponse) ? employeesResponse : [];
-        
+
+        const insuranceData = Array.isArray(insuranceResponse) ? insuranceResponse : [];
+        const employeesData = Array.isArray(employeesResponse) ? employeesResponse : [];
+
         setInsuranceData(insuranceData);
         insuranceDataRef.current = insuranceData;
-        setEmployees(employeesData);
+        setEmployees(employeesData as Employee[]);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
@@ -167,10 +167,10 @@ export default function HealthInsurance() {
       };
 
       const newRecord: any = await apiService.healthInsurance.create(insuranceData);
-      
+
       // Find the employee details for the newly created record
       const employee = employees.find(emp => emp.id === formData.employeeId);
-      
+
       const recordWithEmployee: InsuranceRecord = {
         id: newRecord.id || 0,
         employeeId: newRecord.employeeId || 0,
@@ -185,7 +185,7 @@ export default function HealthInsurance() {
         createdAt: newRecord.createdAt || '',
         updatedAt: newRecord.updatedAt || ''
       };
-      
+
       const currentData = [...insuranceDataRef.current];
       const updatedData: InsuranceRecord[] = [...currentData, recordWithEmployee];
       setInsuranceData(updatedData);
@@ -204,7 +204,7 @@ export default function HealthInsurance() {
 
   const handleEdit = async () => {
     if (!selectedRecord) return;
-    
+
     try {
       const insuranceData = {
         employeeId: formData.employeeId,
@@ -218,10 +218,10 @@ export default function HealthInsurance() {
       };
 
       const updatedRecord: any = await apiService.healthInsurance.update(selectedRecord.id, insuranceData);
-      
+
       // Find the employee details for the updated record
       const employee = employees.find(emp => emp.id === formData.employeeId);
-      
+
       const recordWithEmployee: InsuranceRecord = {
         id: updatedRecord.id || 0,
         employeeId: updatedRecord.employeeId || 0,
@@ -236,7 +236,7 @@ export default function HealthInsurance() {
         createdAt: updatedRecord.createdAt || '',
         updatedAt: updatedRecord.updatedAt || ''
       };
-      
+
       const currentData = [...insuranceDataRef.current];
       const updatedData: InsuranceRecord[] = currentData.map((i) => i.id === selectedRecord.id ? recordWithEmployee : i);
       setInsuranceData(updatedData);
@@ -256,7 +256,7 @@ export default function HealthInsurance() {
     if (window.confirm('Are you sure you want to delete this insurance policy?')) {
       try {
         await apiService.healthInsurance.delete(id);
-        
+
         const updatedData = insuranceData.filter((i) => i.id !== id);
         setInsuranceData(updatedData);
         insuranceDataRef.current = updatedData;
@@ -274,15 +274,15 @@ export default function HealthInsurance() {
 
   const openEditDialog = (record: InsuranceRecord) => {
     setSelectedRecord(record);
-    setFormData({ 
-      employeeId: record.employeeId, 
-      policyNo: record.policyNo, 
-      provider: record.provider, 
-      plan: record.plan, 
-      dependents: record.dependents, 
-      premium: record.premium, 
-      expiryDate: record.expiryDate, 
-      status: record.status 
+    setFormData({
+      employeeId: record.employeeId,
+      policyNo: record.policyNo,
+      provider: record.provider,
+      plan: record.plan,
+      dependents: record.dependents,
+      premium: record.premium,
+      expiryDate: record.expiryDate,
+      status: record.status
     });
     setIsEditDialogOpen(true);
   };
@@ -336,7 +336,7 @@ export default function HealthInsurance() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Policies by Plan</CardTitle>

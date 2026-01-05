@@ -31,9 +31,20 @@ const Employee = sequelize.define('Employee', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    departmentId: {
+        type: DataTypes.INTEGER,
+        allowNull: true, // Allow null initially, or enforced if logic ensures it
+        field: 'department_id', // Maps to department_id column in database
+        references: {
+            model: 'Departments',
+            key: 'id'
+        }
+    },
+    // Keeping department string for backward compatibility or view purposes if needed, 
+    // but ultimately we want to rely on the relation.
     department: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     hireDate: {
         type: DataTypes.DATEONLY,
@@ -46,6 +57,10 @@ const Employee = sequelize.define('Employee', {
     status: {
         type: DataTypes.ENUM('active', 'inactive', 'terminated'),
         defaultValue: 'active'
+    },
+    profilePicture: {
+        type: DataTypes.STRING,
+        allowNull: true
     },
     employeeId: {
         type: DataTypes.STRING,

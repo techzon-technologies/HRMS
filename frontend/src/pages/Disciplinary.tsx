@@ -49,7 +49,14 @@ interface DisciplinaryRecord {
   type: string;
   reason: string;
   date: string;
-  issuedBy: string;
+  issuedBy: string; // Display name
+  issuedById?: number; // ID for editing
+  issuer?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    employeeId: string;
+  };
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -78,7 +85,7 @@ export default function Disciplinary() {
     type: "Verbal Warning",
     reason: "",
     date: "",
-    issuedBy: "",
+    issuedBy: 0, // Changed to ID
     status: "Active",
   });
 
@@ -90,13 +97,13 @@ export default function Disciplinary() {
           apiService.disciplinary.getAll(),
           apiService.employees.getAll()
         ]);
-        
-        const disciplinaryData: DisciplinaryRecord[] = Array.isArray(disciplinaryResponse) ? disciplinaryResponse : [];
-        const employeesData: Employee[] = Array.isArray(employeesResponse) ? employeesResponse : [];
-        
+
+        const disciplinaryData = Array.isArray(disciplinaryResponse) ? disciplinaryResponse : [];
+        const employeesData = Array.isArray(employeesResponse) ? employeesResponse : [];
+
         setDisciplinaryData(disciplinaryData);
         disciplinaryDataRef.current = disciplinaryData;
-        setEmployees(employeesData);
+        setEmployees(employeesData as Employee[]);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
@@ -162,10 +169,11 @@ export default function Disciplinary() {
       };
 
       const newRecord: any = await apiService.disciplinary.create(disciplinaryData);
-      
+
       // Find the employee details for the newly created record
       const employee = employees.find(emp => emp.id === formData.employeeId);
-      
+      const issuer = employees.find(emp => emp.id === formData.issuedBy);
+
       const recordWithEmployee: DisciplinaryRecord = {
         id: newRecord.id || 0,
         employeeId: newRecord.employeeId || 0,
@@ -173,17 +181,19 @@ export default function Disciplinary() {
         type: newRecord.type || '',
         reason: newRecord.reason || '',
         date: newRecord.date || '',
-        issuedBy: newRecord.issuedBy || '',
+        issuedBy: issuer ? `${issuer.firstName} ${issuer.lastName}` : (newRecord.issuedBy || ''),
+        issuedById: formData.issuedBy,
+        issuer: issuer,
         status: newRecord.status || '',
         createdAt: newRecord.createdAt || '',
         updatedAt: newRecord.updatedAt || ''
       };
-      
+
       const currentData = [...disciplinaryDataRef.current];
       const updatedData: DisciplinaryRecord[] = [...currentData, recordWithEmployee];
       setDisciplinaryData(updatedData);
       setIsAddDialogOpen(false);
-      setFormData({ employeeId: 0, type: "Verbal Warning", reason: "", date: "", issuedBy: "", status: "Active" });
+      setFormData({ employeeId: 0, type: "Verbal Warning", reason: "", date: "", issuedBy: 0, status: "Active" });
       toast({ title: "Case Created", description: `Disciplinary case has been created.` });
     } catch (error) {
       console.error('Error creating disciplinary record:', error);
@@ -197,7 +207,7 @@ export default function Disciplinary() {
 
   const handleEdit = async () => {
     if (!selectedRecord) return;
-    
+
     try {
       const disciplinaryData = {
         employeeId: formData.employeeId,
@@ -209,10 +219,11 @@ export default function Disciplinary() {
       };
 
       const updatedRecord: any = await apiService.disciplinary.update(selectedRecord.id, disciplinaryData);
-      
+
       // Find the employee details for the updated record
       const employee = employees.find(emp => emp.id === formData.employeeId);
-      
+      const issuer = employees.find(emp => emp.id === formData.issuedBy);
+
       const recordWithEmployee: DisciplinaryRecord = {
         id: updatedRecord.id || 0,
         employeeId: updatedRecord.employeeId || 0,
@@ -220,12 +231,14 @@ export default function Disciplinary() {
         type: updatedRecord.type || '',
         reason: updatedRecord.reason || '',
         date: updatedRecord.date || '',
-        issuedBy: updatedRecord.issuedBy || '',
+        issuedBy: issuer ? `${issuer.firstName} ${issuer.lastName}` : (updatedRecord.issuedBy || ''),
+        issuedById: formData.issuedBy,
+        issuer: issuer,
         status: updatedRecord.status || '',
         createdAt: updatedRecord.createdAt || '',
         updatedAt: updatedRecord.updatedAt || ''
       };
-      
+
       const currentData = [...disciplinaryDataRef.current];
       const updatedData: DisciplinaryRecord[] = currentData.map((d) => d.id === selectedRecord.id ? recordWithEmployee : d);
       setDisciplinaryData(updatedData);
@@ -245,7 +258,7 @@ export default function Disciplinary() {
     if (window.confirm('Are you sure you want to delete this disciplinary case?')) {
       try {
         await apiService.disciplinary.delete(id);
-        
+
         const updatedData = disciplinaryData.filter((d) => d.id !== id);
         setDisciplinaryData(updatedData);
         toast({ title: "Case Deleted", description: "Disciplinary case has been deleted." });
@@ -262,13 +275,13 @@ export default function Disciplinary() {
 
   const openEditDialog = (record: DisciplinaryRecord) => {
     setSelectedRecord(record);
-    setFormData({ 
-      employeeId: record.employeeId, 
-      type: record.type, 
-      reason: record.reason, 
-      date: record.date, 
-      issuedBy: record.issuedBy, 
-      status: record.status 
+    setFormData({
+      employeeId: record.employeeId,
+      type: record.type,
+      reason: record.reason,
+      date: record.date,
+      issuedBy: record.issuedById || (record.issuer ? record.issuer.id : 0),
+      status: record.status
     });
     setIsEditDialogOpen(true);
   };
@@ -322,7 +335,7 @@ export default function Disciplinary() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Cases by Status</CardTitle>
@@ -436,7 +449,20 @@ export default function Disciplinary() {
             <div className="space-y-2"><Label>Reason</Label><Textarea value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Date</Label><Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Issued By</Label><Input value={formData.issuedBy} onChange={(e) => setFormData({ ...formData, issuedBy: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Issued By</Label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-10"
+                  value={formData.issuedBy}
+                  onChange={(e) => setFormData({ ...formData, issuedBy: parseInt(e.target.value) || 0 })}
+                >
+                  <option value="">Select issuer</option>
+                  {employees.map(employee => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.firstName} {employee.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -477,6 +503,23 @@ export default function Disciplinary() {
               </Select>
             </div>
             <div className="space-y-2"><Label>Reason</Label><Textarea value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>Date</Label><Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Issued By</Label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-10"
+                  value={formData.issuedBy}
+                  onChange={(e) => setFormData({ ...formData, issuedBy: parseInt(e.target.value) || 0 })}
+                >
+                  <option value="">Select issuer</option>
+                  {employees.map(employee => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.firstName} {employee.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="space-y-2"><Label>Status</Label>
               <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

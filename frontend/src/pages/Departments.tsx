@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,66 +28,24 @@ interface Department {
   color: string;
 }
 
-const initialDepartments: Department[] = [
-  {
-    id: 1,
-    name: "Engineering",
-    description: "Software development and technical operations",
-    head: "Robert Martinez",
-    employees: 42,
-    openPositions: 5,
-    color: "bg-primary",
-  },
-  {
-    id: 2,
-    name: "Marketing",
-    description: "Brand management and marketing campaigns",
-    head: "Sarah Johnson",
-    employees: 28,
-    openPositions: 2,
-    color: "bg-chart-2",
-  },
-  {
-    id: 3,
-    name: "Sales",
-    description: "Customer acquisition and revenue generation",
-    head: "David Thompson",
-    employees: 35,
-    openPositions: 4,
-    color: "bg-chart-3",
-  },
-  {
-    id: 4,
-    name: "Human Resources",
-    description: "Employee management and organizational development",
-    head: "Lisa Anderson",
-    employees: 12,
-    openPositions: 1,
-    color: "bg-chart-4",
-  },
-  {
-    id: 5,
-    name: "Finance",
-    description: "Financial planning and accounting",
-    head: "David Kim",
-    employees: 18,
-    openPositions: 2,
-    color: "bg-chart-5",
-  },
-  {
-    id: 6,
-    name: "Design",
-    description: "UI/UX design and creative services",
-    head: "Emily Davis",
-    employees: 15,
-    openPositions: 3,
-    color: "bg-primary",
-  },
-];
+const initialDepartments: Department[] = [];
 
 const Departments = () => {
   const { toast } = useToast();
-  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const data = await apiService.departments.getAll();
+      setDepartments(data as Department[]);
+    } catch (error) {
+      console.error("Failed to fetch departments", error);
+    }
+  };
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
@@ -97,7 +56,7 @@ const Departments = () => {
     openPositions: "",
   });
 
-  const handleAddDepartment = () => {
+  const handleAddDepartment = async () => {
     if (!newDepartment.name || !newDepartment.head) {
       toast({
         title: "Validation Error",
@@ -108,23 +67,32 @@ const Departments = () => {
     }
 
     const colors = ["bg-primary", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5"];
-    const department: Department = {
-      id: departments.length + 1,
-      name: newDepartment.name,
-      description: newDepartment.description,
-      head: newDepartment.head,
-      employees: 0,
-      openPositions: parseInt(newDepartment.openPositions) || 0,
-      color: colors[departments.length % colors.length],
-    };
 
-    setDepartments([...departments, department]);
-    setNewDepartment({ name: "", description: "", head: "", openPositions: "" });
-    setIsAddDialogOpen(false);
-    toast({
-      title: "Department Created",
-      description: `${department.name} department has been created.`,
-    });
+    try {
+      const payload = {
+        name: newDepartment.name,
+        description: newDepartment.description,
+        head: newDepartment.head,
+        openPositions: parseInt(newDepartment.openPositions) || 0,
+        color: colors[departments.length % colors.length],
+      };
+
+      const createdDepartment = await apiService.departments.create(payload);
+      setDepartments([...departments, createdDepartment as Department]);
+      setNewDepartment({ name: "", description: "", head: "", openPositions: "" });
+      setIsAddDialogOpen(false);
+      const newDept = createdDepartment as Department;
+      toast({
+        title: "Department Created",
+        description: `${newDept.name} department has been created.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create department.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewDepartment = (department: Department) => {

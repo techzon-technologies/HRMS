@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiService } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,33 @@ const formatCurrency = (amount: number) => {
 const Payroll = () => {
   const { toast } = useToast();
   const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
+
+  useEffect(() => {
+    fetchPayroll();
+  }, []);
+
+  const fetchPayroll = async () => {
+    try {
+      const data = await apiService.payrolls.getAll();
+      const mappedData = data.map((p: any) => ({
+        id: p.id,
+        employee: {
+          name: p.employee ? `${p.employee.firstName} ${p.employee.lastName}` : "Unknown",
+          avatar: "",
+          initials: p.employee ? `${p.employee.firstName[0]}${p.employee.lastName[0]}`.toUpperCase() : "NA",
+          position: p.employee?.position || "Unknown",
+        },
+        baseSalary: parseFloat(p.salary) || 0, // Model uses `salary`
+        bonus: parseFloat(p.bonus) || 0,
+        deductions: parseFloat(p.deductions) || 0,
+        netSalary: (parseFloat(p.salary) || 0) + (parseFloat(p.bonus) || 0) - (parseFloat(p.deductions) || 0),
+        status: p.status || "pending",
+      }));
+      setSalaryRecords(mappedData);
+    } catch (error) {
+      console.error("Failed to fetch payroll", error);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
