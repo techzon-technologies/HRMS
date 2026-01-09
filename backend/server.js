@@ -32,19 +32,34 @@ const PORT = process.env.PORT || 3018; // Backend server still runs on port 3018
 
 // Middleware
 // Configure CORS to allow requests from the frontend domain
+const allowedOrigins = [
+    'http://localhost:5173', 
+    'http://localhost:3000', 
+    'http://localhost:8099', 
+    'https://hrmsbackend.webby.one', 
+    'https://hrms.webby.one',
+];
+
+// Handle Private Network Access preflight requests
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    }
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        return res.status(204).end();
+    }
+    next();
+});
+
 app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        
-        const allowedOrigins = [
-            'http://localhost:5173', 
-            'http://localhost:3000', 
-            'http://localhost:8099', 
-            'https://hrmsbackend.webby.one', 
-            'https://hrms.webby.one',
-            'https://hrms-frontend.webby.one' // Add the frontend domain
-        ];
         
         // Check if the origin is in the allowed list
         const isAllowed = allowedOrigins.indexOf(origin) !== -1;

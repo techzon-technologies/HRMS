@@ -176,10 +176,10 @@ export default function CompanyExpenses() {
   }, []);
 
   const filteredExpenses = expenses.filter((expense) =>
-    expense.employee.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.employee.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (expense.employee?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) || '') ||
+    (expense.employee?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) || '') ||
+    (expense.category?.toLowerCase().includes(searchQuery.toLowerCase()) || '') ||
+    (expense.description?.toLowerCase().includes(searchQuery.toLowerCase()) || '')
   );
 
   const handleAddExpense = async () => {
@@ -252,7 +252,7 @@ export default function CompanyExpenses() {
       
       toast({
         title: "Expense Approved",
-        description: `Expense of AED ${expense.amount.toLocaleString()} by ${expense.employee.firstName} ${expense.employee.lastName} has been approved.`,
+        description: `Expense of AED ${expense.amount.toLocaleString()} by ${expense.employee?.firstName || 'N/A'} ${expense.employee?.lastName || ''} has been approved.`,
       });
     } catch (error) {
       console.error('Error approving expense:', error);
@@ -288,7 +288,7 @@ export default function CompanyExpenses() {
       
       toast({
         title: "Expense Rejected",
-        description: `Expense of AED ${expense.amount.toLocaleString()} by ${expense.employee.firstName} ${expense.employee.lastName} has been rejected.`,
+        description: `Expense of AED ${expense.amount.toLocaleString()} by ${expense.employee?.firstName || 'N/A'} ${expense.employee?.lastName || ''} has been rejected.`,
         variant: "destructive",
       });
     } catch (error) {
@@ -480,7 +480,7 @@ export default function CompanyExpenses() {
               <TableBody>
                 {filteredExpenses.map((expense) => (
                   <TableRow key={expense.id}>
-                    <TableCell className="font-medium">{expense.employee.firstName} {expense.employee.lastName}</TableCell>
+                    <TableCell className="font-medium">{expense.employee?.firstName || 'N/A'} {expense.employee?.lastName || ''}</TableCell>
                     <TableCell>{expense.category}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{expense.description}</TableCell>
                     <TableCell>{expense.amount.toLocaleString()}</TableCell>
@@ -649,7 +649,7 @@ export default function CompanyExpenses() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Employee</p>
-                  <p className="font-medium">{selectedExpense.employee.firstName} {selectedExpense.employee.lastName}</p>
+                  <p className="font-medium">{selectedExpense.employee?.firstName || 'N/A'} {selectedExpense.employee?.lastName || ''}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Category</p>
